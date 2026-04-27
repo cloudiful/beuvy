@@ -9,6 +9,9 @@ pub struct FocusableUiPlugin;
 pub struct UiFocusable;
 
 #[derive(Component, Debug, Clone, Copy)]
+pub struct UiFocusOutlineOnFocusOnly;
+
+#[derive(Component, Debug, Clone, Copy)]
 pub struct UiHovered;
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -42,7 +45,12 @@ pub fn hidden_outline() -> Outline {
 
 fn sync_focusable_outlines_on_state_change(
     mut focusables: Query<
-        (Has<UiHovered>, Has<UiFocused>, &mut Outline),
+        (
+            Has<UiHovered>,
+            Has<UiFocused>,
+            Has<UiFocusOutlineOnFocusOnly>,
+            &mut Outline,
+        ),
         (
             With<UiFocusable>,
             Without<Button>,
@@ -50,8 +58,8 @@ fn sync_focusable_outlines_on_state_change(
         ),
     >,
 ) {
-    for (hovered, focused, mut outline) in &mut focusables {
-        outline.color = outline_color(hovered, focused);
+    for (hovered, focused, focus_only, mut outline) in &mut focusables {
+        outline.color = outline_color(hovered, focused, focus_only);
     }
 }
 
@@ -59,30 +67,57 @@ fn sync_focusable_outlines_on_state_removal(
     mut removed_hovered: RemovedComponents<UiHovered>,
     mut removed_focused: RemovedComponents<UiFocused>,
     mut focusables: Query<
-        (Has<UiHovered>, Has<UiFocused>, &mut Outline),
+        (
+            Has<UiHovered>,
+            Has<UiFocused>,
+            Has<UiFocusOutlineOnFocusOnly>,
+            &mut Outline,
+        ),
         (With<UiFocusable>, Without<Button>),
     >,
 ) {
     for entity in removed_hovered.read() {
-        let Ok((hovered, focused, mut outline)) = focusables.get_mut(entity) else {
+        let Ok((hovered, focused, focus_only, mut outline)) = focusables.get_mut(entity) else {
             continue;
         };
-        outline.color = outline_color(hovered, focused);
+        outline.color = outline_color(hovered, focused, focus_only);
     }
 
     for entity in removed_focused.read() {
-        let Ok((hovered, focused, mut outline)) = focusables.get_mut(entity) else {
+        let Ok((hovered, focused, focus_only, mut outline)) = focusables.get_mut(entity) else {
             continue;
         };
-        outline.color = outline_color(hovered, focused);
+        outline.color = outline_color(hovered, focused, focus_only);
     }
 }
 
-pub fn outline_color(hovered: bool, focused: bool) -> Color {
+pub fn outline_color(hovered: bool, focused: bool, focus_only: bool) -> Color {
+    if focus_only {
+        return if focused {
+            ui_focus_outline_color()
+        } else {
+            Color::NONE
+        };
+    }
+
     match (hovered, focused) {
         (true, true) => ui_focus_outline_hover_color(),
         (true, false) => ui_hover_outline_color(),
         (false, true) => ui_focus_outline_color(),
         (false, false) => Color::NONE,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn focus_only_outline_ignores_hover_state() {
+        assert_eq!(outline_color(true, false, true), Color::NONE);
+        assert_eq!(
+            outline_color(true, true, true),
+            ui_focus_outline_color()
+        );
     }
 }

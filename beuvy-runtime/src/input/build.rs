@@ -7,7 +7,7 @@ use super::{
     InputSelection, InputType,
 };
 use crate::build_pending::UiBuildPending;
-use crate::focus::{UiFocusable, hidden_outline};
+use crate::focus::{UiFocusOutlineOnFocusOnly, UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
 use crate::style::{
     apply_utility_patch, resolve_classes_with_fallback, root_visual_styles_from_patch,
@@ -17,12 +17,18 @@ use bevy::picking::Pickable;
 use bevy::prelude::*;
 
 const DEFAULT_INPUT_CLASS: &str = "input-root";
+const DEFAULT_RANGE_CLASS: &str = "input-range-root";
 
 pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)>) {
     for (entity, add_input) in query {
         let add_input = add_input.clone();
+        let default_root_class = if add_input.input_type == InputType::Range {
+            DEFAULT_RANGE_CLASS
+        } else {
+            DEFAULT_INPUT_CLASS
+        };
         let root_patch = resolve_classes_with_fallback(
-            DEFAULT_INPUT_CLASS,
+            default_root_class,
             add_input.class.as_deref(),
             "input root",
         );
@@ -178,6 +184,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     entity_commands.insert((DisabledInput, UiDisabled));
                 } else {
                     entity_commands.insert(UiFocusable);
+                    if add_input.input_type == InputType::Range {
+                        entity_commands.insert(UiFocusOutlineOnFocusOnly);
+                    }
                 }
 
                 entity_commands.observe(super::state::input_click);

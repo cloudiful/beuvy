@@ -142,11 +142,19 @@ layer.
 
 ## Fonts
 
-`beuvy-runtime` does not require a crate-managed font asset. By default it
-leaves the `TextFont.font` handle unset and relies on Bevy's built-in default
-font.
+`beuvy-runtime` loads its default UI font from the active theme's
+`--font-ui` token. The built-in stylesheet points that token at
+`fonts/SarasaFixedSC-Regular.ttf`, and application stylesheets can override it
+with their own asset path:
 
-If your app wants a custom font, insert a `FontResource` yourself:
+```css
+@theme {
+  --font-ui: "fonts/YourFont.ttf";
+}
+```
+
+If your app wants full control, insert a `FontResource` yourself before
+`UiKitPlugin`; the runtime leaves an existing resource untouched:
 
 ```rust
 use bevy::prelude::*;

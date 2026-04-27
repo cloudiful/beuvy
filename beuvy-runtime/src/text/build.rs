@@ -1,12 +1,25 @@
 use super::{AddText, FontResource, LocalizedText, LocalizedTextFormat};
 use crate::build_pending::UiBuildPending;
+use crate::style::font_asset_path;
 use bevy::prelude::*;
 use bevy_localization::Localization;
 
-pub(super) fn setup(mut commands: Commands, font_resource: Option<Res<FontResource>>) {
-    if font_resource.is_none() {
-        commands.insert_resource(FontResource::default());
+pub(super) fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    font_resource: Option<Res<FontResource>>,
+) {
+    if font_resource.is_some() {
+        return;
     }
+
+    let font_path = font_asset_path();
+    if font_path.trim().is_empty() {
+        commands.insert_resource(FontResource::default());
+        return;
+    }
+
+    commands.insert_resource(FontResource::from_handle(asset_server.load(font_path)));
 }
 
 pub(super) fn add_text(
@@ -74,6 +87,7 @@ pub(super) fn add_text(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::asset::AssetPlugin;
     use bevy::ecs::system::SystemState;
 
     #[test]
@@ -95,5 +109,24 @@ mod tests {
 
         app.world_mut().despawn(entity);
         system_state.apply(app.world_mut());
+    }
+
+    #[test]
+    fn setup_keeps_existing_font_resource() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        app.insert_resource(FontResource::default());
+
+        let mut system_state: SystemState<(
+            Commands,
+            Res<AssetServer>,
+            Option<Res<FontResource>>,
+        )> = SystemState::new(app.world_mut());
+        let (commands, asset_server, font_resource) = system_state.get_mut(app.world_mut());
+        setup(commands, asset_server, font_resource);
+        system_state.apply(app.world_mut());
+
+        let font_resource = app.world().resource::<FontResource>();
+        assert!(font_resource.primary_font.is_none());
     }
 }
