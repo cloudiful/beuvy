@@ -1,0 +1,15 @@
+@utility form-item {
+    @apply flex items-center justify-between flex-wrap w-full max-w-[960px] min-h-[60px] px-[var(--spacing-form-padding-x)] py-[var(--spacing-form-padding-y)] rounded-control border-[var(--border-regular)] border-panel-subtle-border bg-panel-subtle-bg gap-x-[var(--spacing-form-gap)] mb-[8px];
+}
+
+@utility form-item-compact {
+    @apply flex-col items-stretch justify-start gap-y-[6px];
+}
+
+@utility form-item-label {
+    @apply min-w-[0px] basis-[180px] grow mr-[12px];
+}
+
+@utility form-item-label-compact {
+    @apply basis-auto mr-[0px] mb-[6px];
+}

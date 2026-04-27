@@ -1,0 +1,17 @@
+[package]
+name = "beuvy"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = [
+    "beuvy-runtime",
+]
+resolver = "2"
+
+[dependencies]
+bevy = { version = "0.18.1" }
+beuvy-runtime = { path = "beuvy-runtime" }
+bevy-localization = { package = "cloudiful-bevy-localization", version = "0.1.2" }
+roxmltree = "0.20.0"
+serde = { version = "1.0.228", features = ["derive"] }

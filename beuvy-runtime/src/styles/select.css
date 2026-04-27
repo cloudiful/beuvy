@@ -1,0 +1,42 @@
+@theme {
+    --color-select-chip-bg: #FFFFFF;
+    --color-select-chip-border: #CBD5E1;
+    --color-select-panel-bg: #FFFFFF;
+    --color-select-panel-border: #D1D5DB;
+    --color-select-glyph: #374151;
+    --color-select-indicator-bg: #EFF6FF;
+    --color-select-indicator-border: #BFDBFE;
+    --color-select-indicator-glyph: #1D4ED8;
+}
+
+@utility select-root {
+    @apply relative flex flex-col items-end min-w-0 grow;
+}
+
+@utility select-trigger {
+    @apply min-w-0 max-w-full grow justify-start relative overflow-x-clip pr-[44px];
+}
+
+@utility select-option {
+    @apply min-w-0 max-w-full grow justify-start relative overflow-x-clip pr-[40px];
+}
+
+@utility select-chevron {
+    @apply absolute right-[12px] top-[10px] w-[26px] h-[26px] flex items-center justify-center rounded-pill border-[var(--border-regular)] border-select-chip-border bg-select-chip-bg;
+}
+
+@utility select-chevron-label {
+    @apply text-control text-select-glyph;
+}
+
+@utility select-panel {
+    @apply absolute top-full right-[0px] flex flex-col items-stretch min-w-[160px] max-h-[360px] p-[8px] rounded-panel border-[var(--border-regular)] border-select-panel-border bg-select-panel-bg mt-[6px] overflow-y-scroll gap-[6px];
+}
+
+@utility select-indicator {
+    @apply absolute right-[14px] top-[10px] w-[24px] h-[24px] flex items-center justify-center rounded-pill border-[var(--border-regular)] border-select-indicator-border bg-select-indicator-bg;
+}
+
+@utility select-indicator-label {
+    @apply text-control text-select-indicator-glyph;
+}

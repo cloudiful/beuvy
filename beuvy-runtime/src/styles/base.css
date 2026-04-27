@@ -1,0 +1,37 @@
+@theme {
+    --font-ui: "fonts/SarasaFixedSC-Regular.ttf";
+    --text-hint: 13px;
+    --text-meta: 14px;
+    --text-body: 15px;
+    --text-control: 16px;
+    --text-control-compact: 16px;
+    --text-title: 18px;
+    --text-display: 20px;
+    --radius-ui: 8px;
+    --radius-panel: 12px;
+    --radius-control: 10px;
+    --radius-pill: 999px;
+    --border-regular: 1px;
+    --border-focus-outline: 2px;
+    --spacing-scrollbar-width: 10px;
+    --spacing-form-padding-x: 14px;
+    --spacing-form-padding-y: 10px;
+    --spacing-form-gap: 12px;
+    --spacing-button-padding-x: 14px;
+    --spacing-button-padding-y: 8px;
+    --breakpoint-form-item-compact: 420px;
+    --color-primary: #111827;
+    --color-secondary: #4B5563;
+    --color-disabled: #9CA3AF;
+    --color-placeholder: #9CA3AF;
+    --color-panel-main-bg: #FFFFFF;
+    --color-panel-main-border: #D1D5DB;
+    --color-panel-subtle-bg: #F9FAFB;
+    --color-panel-subtle-border: #D1D5DB;
+    --color-panel-prompt-bg: #FFFFFF;
+    --color-panel-prompt-border: #D1D5DB;
+    --color-control-hover-outline: #93C5FD;
+    --color-control-focus-outline: #2563EB;
+    --color-control-focus-hover-outline: #1D4ED8;
+    --color-control-active-border: #2563EB;
+}

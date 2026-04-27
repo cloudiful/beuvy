@@ -1,0 +1,18 @@
+[package]
+name = "beuvy-runtime"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "A low-level Bevy UI kit with reusable controls and utility-class styling."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://gitea.cloud1ful.com/games/GPMO"
+homepage = "https://gitea.cloud1ful.com/games/GPMO"
+documentation = "https://docs.rs/beuvy-runtime"
+keywords = ["bevy", "ui", "gamedev", "utility", "controls"]
+categories = ["game-development", "gui"]
+
+[dependencies]
+bevy = { version = "0.18.1" }
+bevy-localization = { package = "cloudiful-bevy-localization", version = "0.1.2" }
+serde = { version = "1.0.228", features = ["derive"] }
