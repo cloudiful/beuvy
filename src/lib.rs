@@ -1,3 +1,21 @@
+#![doc = r#"
+`beuvy` is a declarative UI layer for Bevy.
+
+It parses reusable UI assets into typed Bevy runtime structures, then
+materializes those structures with the controls and style utilities provided by
+[`beuvy-runtime`].
+
+The main entry points are:
+
+- [`DeclarativeUiPlugin`] to register asset loading and runtime systems.
+- [`parse_declarative_ui_asset`] to parse a declarative UI asset from text.
+- [`materialize_declarative_ui_shell_on_entity_in_world`] to attach a parsed UI
+  shell to an existing entity.
+
+Use `beuvy-runtime` directly when you only need controls, utility classes, and
+state-driven UI styling.
+"#]
+
 mod ast;
 mod basic;
 mod error;

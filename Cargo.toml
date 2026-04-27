@@ -2,6 +2,15 @@
 name = "beuvy"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+description = "A declarative Bevy UI layer backed by reusable runtime controls."
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://gitea.cloud1ful.com/games/beuvy"
+homepage = "https://gitea.cloud1ful.com/games/beuvy"
+documentation = "https://docs.rs/beuvy"
+keywords = ["bevy", "ui", "gamedev", "declarative"]
+categories = ["game-development", "gui", "parser-implementations"]
 
 [workspace]
 members = [
@@ -9,9 +18,24 @@ members = [
 ]
 resolver = "2"
 
-[dependencies]
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://gitea.cloud1ful.com/games/beuvy"
+homepage = "https://gitea.cloud1ful.com/games/beuvy"
+
+[workspace.dependencies]
+beuvy-runtime = { path = "./beuvy-runtime", version = "0.1.0" }
 bevy = { version = "0.18.1" }
-beuvy-runtime = { path = "beuvy-runtime" }
 bevy-localization = { package = "cloudiful-bevy-localization", version = "0.1.2" }
-roxmltree = "0.20.0"
+roxmltree = "0.21.1"
 serde = { version = "1.0.228", features = ["derive"] }
+
+[dependencies]
+bevy = { workspace = true }
+beuvy-runtime = { workspace = true }
+bevy-localization = { workspace = true }
+roxmltree = { workspace = true }
+serde = { workspace = true }
