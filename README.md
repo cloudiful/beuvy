@@ -16,6 +16,12 @@ Use `beuvy` when you want:
 - `beuvy-runtime`: reusable Bevy UI controls, utility-class styling, and
   state-driven visual styles used underneath `beuvy`.
 
+## Version Compatibility
+
+| beuvy | bevy | MSRV |
+| --- | --- | --- |
+| 0.1 | 0.18 | 1.85 |
+
 ## Install
 
 ```toml
@@ -30,19 +36,8 @@ If you want the current default bundle:
 beuvy = "0.1.0"
 ```
 
-If you only need the low-level runtime controls:
-
-```toml
-[dependencies]
-beuvy = { version = "0.1.0", default-features = false, features = ["runtime"] }
-```
-
-Or depend on the runtime crate directly:
-
-```toml
-[dependencies]
-beuvy-runtime = "0.1.0"
-```
+Low-level runtime usage lives in
+[`beuvy-runtime/README.md`](./beuvy-runtime/README.md).
 
 ## Vue-Style Authoring
 
@@ -112,52 +107,6 @@ let asset = parse_declarative_ui_asset(
 - `runtime`: re-exports `beuvy-runtime` for direct low-level use.
 - `declarative`: parser, asset loader, shell materialization, bindings.
 - `vue`: preferred high-level feature alias for declarative authoring.
-
-## Runtime Layer
-
-`beuvy-runtime` still exists as the lower-level layer. `beuvy` re-exports the
-main runtime surface, so direct control construction can stay on the `beuvy`
-import path:
-
-```rust
-use bevy::prelude::*;
-use beuvy::{AddButton, AddText, UiKitPlugin};
-
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(UiKitPlugin)
-        .add_systems(Startup, setup)
-        .run();
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
-
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            padding: UiRect::all(Val::Px(16.0)),
-            row_gap: Val::Px(12.0),
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(AddText {
-                text: "beuvy".to_string(),
-                ..default()
-            });
-            parent.spawn(AddButton {
-                name: "confirm".to_string(),
-                text: "Confirm".to_string(),
-                ..default()
-            });
-        });
-}
-```
-
-Use `beuvy-runtime` directly only when you do not want the declarative layer.
 
 ## License
 

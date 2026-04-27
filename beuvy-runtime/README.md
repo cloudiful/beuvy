@@ -11,6 +11,12 @@ It provides:
 The crate is intended as a reusable Bevy UI foundation. It does not include the
 higher-level declarative `.vue` DSL used by GPMO.
 
+## Version Compatibility
+
+| beuvy-runtime | bevy | MSRV |
+| --- | --- | --- |
+| 0.1 | 0.18 | 1.85 |
+
 ## Install
 
 ```toml
@@ -18,6 +24,13 @@ higher-level declarative `.vue` DSL used by GPMO.
 bevy = "0.18.1"
 beuvy-runtime = "0.1.0"
 bevy-localization = { package = "cloudiful-bevy-localization", version = "0.1.2" }
+```
+
+If you only need the low-level runtime controls through the top-level crate:
+
+```toml
+[dependencies]
+beuvy = { version = "0.1.0", default-features = false, features = ["runtime"] }
 ```
 
 ## Quick Start
@@ -67,6 +80,49 @@ fn setup(mut commands: Commands) {
         });
 }
 ```
+
+`beuvy` re-exports the main runtime surface, so direct control construction can
+also stay on the `beuvy` import path:
+
+```rust
+use bevy::prelude::*;
+use beuvy::{AddButton, AddText, UiKitPlugin};
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(UiKitPlugin)
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+
+    commands
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            padding: UiRect::all(Val::Px(16.0)),
+            row_gap: Val::Px(12.0),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(AddText {
+                text: "beuvy".to_string(),
+                ..default()
+            });
+            parent.spawn(AddButton {
+                name: "confirm".to_string(),
+                text: "Confirm".to_string(),
+                ..default()
+            });
+        });
+}
+```
+
+Use `beuvy-runtime` directly when you do not want the declarative layer.
 
 ## Utility Classes
 
