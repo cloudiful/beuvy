@@ -29,13 +29,13 @@ pub(crate) fn input_text_node() -> Node {
 }
 
 fn input_display_text(field: &InputField) -> (&str, Color) {
-    if let Some(preedit) = field.preedit.as_deref() {
-        return (preedit, text_primary_color());
-    }
-    if !field.value.is_empty() {
-        return (&field.value, text_primary_color());
-    }
-    (&field.placeholder, text_placeholder_color())
+    let (text, is_placeholder) = field.edit_state.display_text(&field.placeholder);
+    let color = if is_placeholder {
+        text_placeholder_color()
+    } else {
+        text_primary_color()
+    };
+    (text, color)
 }
 
 pub(crate) fn input_text_bundle(add_input: &AddInput) -> AddText {
@@ -71,10 +71,10 @@ pub(crate) fn update_input_text(
     }
 
     let text = if disabled {
-        if field.value.is_empty() {
+        if field.value().is_empty() {
             field.placeholder.as_str()
         } else {
-            field.value.as_str()
+            field.value()
         }
     } else {
         input_display_text(field).0
@@ -109,12 +109,11 @@ pub fn set_input_value(
     value: impl Into<String>,
 ) -> bool {
     let value = value.into();
-    if field.value == value && field.preedit.is_none() {
+    if field.value() == value && field.edit_state.preedit().is_none() {
         return false;
     }
 
-    field.value = value;
-    field.preedit = None;
+    field.set_value(value);
     update_input_text(commands, font_resource, field, disabled);
     true
 }

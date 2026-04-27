@@ -1,7 +1,8 @@
 use super::range::{spawn_range_fill, spawn_range_thumb, spawn_range_track};
 use super::text::{default_input_node, input_text_bundle, input_text_marker, input_text_node};
 use super::value::normalize_numeric_value;
-use super::{AddInput, DisabledInput, InputField, InputType};
+use super::{AddInput, DisabledInput, InputCaret, InputField, InputSelection, InputType};
+use super::edit::TextEditState;
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
@@ -53,6 +54,8 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     };
 
                 let mut text_entity = Entity::PLACEHOLDER;
+                let mut selection_entity = Entity::PLACEHOLDER;
+                let mut caret_entity = Entity::PLACEHOLDER;
 
                 entity_commands.insert((
                     Name::new(add_input.name.clone()),
@@ -63,10 +66,11 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     InputField {
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
-                        value: normalized_value,
                         placeholder: add_input.placeholder.clone(),
                         text_entity,
-                        preedit: None,
+                        selection_entity,
+                        caret_entity,
+                        edit_state: TextEditState::with_text(normalized_value),
                         min: add_input.min,
                         max: add_input.max,
                         step: add_input.step,
@@ -105,11 +109,25 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     let text_add_input = AddInput {
                         value: entity_commands
                             .get::<InputField>()
-                            .map(|field| field.value.clone())
+                            .map(|field| field.value().to_string())
                             .unwrap_or_default(),
                         ..add_input.clone()
                     };
                     entity_commands.world_scope(|world| {
+                        selection_entity = world
+                            .spawn((
+                                InputSelection,
+                                Pickable::IGNORE,
+                                Visibility::Hidden,
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    width: Val::Px(0.0),
+                                    height: Val::Px(0.0),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgba(0.23, 0.45, 0.96, 0.18)),
+                            ))
+                            .id();
                         text_entity = world
                             .spawn((
                                 input_text_marker(),
@@ -123,11 +141,29 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                 text_node,
                             ))
                             .id();
-                        world.entity_mut(input_entity).add_child(text_entity);
+                        caret_entity = world
+                            .spawn((
+                                InputCaret,
+                                Pickable::IGNORE,
+                                Visibility::Hidden,
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    width: Val::Px(2.0),
+                                    height: Val::Px(0.0),
+                                    ..default()
+                                },
+                                BackgroundColor(crate::style::text_primary_color()),
+                            ))
+                            .id();
                         world
+                            .entity_mut(input_entity)
+                            .add_children(&[selection_entity, text_entity, caret_entity]);
+                        let mut input = world
                             .get_mut::<InputField>(input_entity)
-                            .expect("input just inserted")
-                            .text_entity = text_entity;
+                            .expect("input just inserted");
+                        input.text_entity = text_entity;
+                        input.selection_entity = selection_entity;
+                        input.caret_entity = caret_entity;
                     });
                 }
 
@@ -138,6 +174,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                 }
 
                 entity_commands.observe(super::state::input_click);
+                entity_commands.observe(super::state::input_drag_start);
+                entity_commands.observe(super::state::input_drag);
+                entity_commands.observe(super::state::input_drag_end);
 
                 entity_commands
                     .remove::<AddInput>()

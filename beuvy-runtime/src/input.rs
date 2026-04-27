@@ -1,4 +1,5 @@
 mod build;
+mod edit;
 mod range;
 mod state;
 mod text;
@@ -10,6 +11,7 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::window::Ime;
+use edit::TextEditState;
 
 pub struct InputPlugin;
 
@@ -64,10 +66,11 @@ impl Default for AddInput {
 pub struct InputField {
     pub name: String,
     pub input_type: InputType,
-    pub value: String,
     pub placeholder: String,
     pub text_entity: Entity,
-    pub preedit: Option<String>,
+    pub selection_entity: Entity,
+    pub caret_entity: Entity,
+    pub edit_state: TextEditState,
     pub min: Option<f32>,
     pub max: Option<f32>,
     pub step: Option<f32>,
@@ -78,8 +81,16 @@ pub struct InputField {
 }
 
 impl InputField {
+    pub fn value(&self) -> &str {
+        self.edit_state.committed()
+    }
+
+    pub fn set_value(&mut self, value: impl Into<String>) {
+        self.edit_state.set_text(value);
+    }
+
     pub fn numeric_value(&self) -> Option<f32> {
-        value::parse_number_buffer(&self.value)
+        value::parse_number_buffer(self.value())
     }
 
     pub fn step_by(&mut self, direction: f32) -> Option<String> {
@@ -97,11 +108,10 @@ impl InputField {
             self.step,
         );
         let next_value = value::format_numeric_value(next, self.step);
-        if self.value == next_value {
+        if self.value() == next_value {
             return None;
         }
-        self.value = next_value.clone();
-        self.preedit = None;
+        self.set_value(next_value.clone());
         Some(next_value)
     }
 }
@@ -111,6 +121,12 @@ pub struct InputText;
 
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct DisabledInput;
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct InputSelection;
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct InputCaret;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InputCursorPosition {
@@ -159,7 +175,8 @@ impl Plugin for InputPlugin {
                     state::handle_ime_input,
                     state::sync_input_ime_state,
                 ),
-            );
+            )
+            .add_systems(PostUpdate, state::sync_input_edit_visuals);
     }
 }
 
@@ -186,7 +203,7 @@ fn push_value_changed(
     value_changed.write(InputValueChangedMessage {
         entity,
         name: field.name.clone(),
-        value: field.value.clone(),
+        value: field.value().to_string(),
     });
 }
 

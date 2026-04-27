@@ -256,11 +256,10 @@ fn commit_range_value(
 ) {
     let value = snap_numeric_value(value, field.min, field.max, field.step);
     let next_value = format_numeric_value(value, field.step);
-    if field.value == next_value {
+    if field.value() == next_value {
         return;
     }
-    field.value = next_value.clone();
-    field.preedit = None;
+    field.set_value(next_value.clone());
     value_changed.write(InputValueChangedMessage {
         entity,
         name: field.name.clone(),
@@ -324,15 +323,17 @@ fn snap_slider_pixel(value: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::edit::TextEditState;
 
     fn range_field(min: f32, max: f32, step: f32, value: &str) -> InputField {
         InputField {
             name: "range".to_string(),
             input_type: super::super::InputType::Range,
-            value: value.to_string(),
             placeholder: String::new(),
             text_entity: Entity::PLACEHOLDER,
-            preedit: None,
+            selection_entity: Entity::PLACEHOLDER,
+            caret_entity: Entity::PLACEHOLDER,
+            edit_state: TextEditState::with_text(value),
             min: Some(min),
             max: Some(max),
             step: Some(step),
