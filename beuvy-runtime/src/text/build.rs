@@ -1,6 +1,7 @@
 use super::{AddText, FontResource, LocalizedText, LocalizedTextFormat};
 use crate::build_pending::UiBuildPending;
 use crate::style::font_asset_path;
+use crate::theme_config::ui_theme_asset_exists;
 use bevy::prelude::*;
 use bevy_localization::Localization;
 
@@ -15,6 +16,15 @@ pub(super) fn setup(
 
     let font_path = font_asset_path();
     if font_path.trim().is_empty() {
+        commands.insert_resource(FontResource::default());
+        return;
+    }
+
+    if !ui_theme_asset_exists(&font_path) {
+        bevy::log::warn!(
+            "theme font asset not found for --font-ui: {}; falling back to Bevy default font",
+            font_path
+        );
         commands.insert_resource(FontResource::default());
         return;
     }

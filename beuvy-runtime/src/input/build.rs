@@ -7,7 +7,7 @@ use super::{
     InputSelection, InputType,
 };
 use crate::build_pending::UiBuildPending;
-use crate::focus::{UiFocusOutlineOnFocusOnly, UiFocusable, hidden_outline};
+use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
 use crate::style::{
     apply_utility_patch, resolve_classes_with_fallback, root_visual_styles_from_patch,
@@ -71,7 +71,6 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     root_node,
                     Visibility::Visible,
                     BackgroundColor(Color::NONE),
-                    hidden_outline(),
                     InputField {
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
@@ -90,6 +89,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     },
                     InputClickState::default(),
                 ));
+                if add_input.input_type != InputType::Range {
+                    entity_commands.insert(hidden_outline());
+                }
                 if let Some(styles) = root_styles.clone() {
                     entity_commands.insert(styles);
                 }
@@ -183,9 +185,8 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                 if add_input.disabled {
                     entity_commands.insert((DisabledInput, UiDisabled));
                 } else {
-                    entity_commands.insert(UiFocusable);
-                    if add_input.input_type == InputType::Range {
-                        entity_commands.insert(UiFocusOutlineOnFocusOnly);
+                    if add_input.input_type != InputType::Range {
+                        entity_commands.insert(UiFocusable);
                     }
                 }
 

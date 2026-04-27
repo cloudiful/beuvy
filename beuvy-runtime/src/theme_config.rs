@@ -28,6 +28,14 @@ pub(crate) fn ui_theme_asset_path(relative_path: &str) -> String {
     asset_path.to_string()
 }
 
+pub(crate) fn ui_theme_asset_exists(relative_path: &str) -> bool {
+    let asset_path = relative_path.trim_start_matches('/');
+    if asset_path.is_empty() {
+        return false;
+    }
+    resolve_asset_root().join(asset_path).exists()
+}
+
 fn resolve_asset_root() -> PathBuf {
     let cwd_root = PathBuf::from("assets");
     if cwd_root.exists() {
