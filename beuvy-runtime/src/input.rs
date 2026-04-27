@@ -11,7 +11,8 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::window::Ime;
-use edit::TextEditState;
+
+pub use edit::{PreeditState, TextEditState};
 
 pub struct InputPlugin;
 
@@ -132,6 +133,17 @@ pub struct InputCaret;
 pub struct InputCursorPosition {
     pub x: f32,
     pub y: f32,
+}
+
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub(crate) struct InputScrollOffset {
+    pub x: f32,
+}
+
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub(crate) struct InputClickState {
+    pub last_click_time: f64,
+    pub click_count: u8,
 }
 
 #[derive(Component, Debug, Clone, Copy)]

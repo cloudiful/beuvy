@@ -1,5 +1,11 @@
 use core::ops::Range;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisplayText {
+    pub text: String,
+    pub is_placeholder: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PreeditState {
     pub text: String,
@@ -57,6 +63,17 @@ impl TextEditState {
 
     pub fn clear_selection(&mut self) {
         self.selection_anchor = None;
+    }
+
+    pub fn select_all(&mut self) -> bool {
+        self.preedit = None;
+        if self.committed.is_empty() {
+            return false;
+        }
+        let changed = self.selection_range() != Some(0..self.committed.len());
+        self.selection_anchor = Some(0);
+        self.caret = self.committed.len();
+        changed
     }
 
     pub fn set_text(&mut self, text: impl Into<String>) {
@@ -220,7 +237,7 @@ impl TextEditState {
         if self.replace_selection("") {
             return true;
         }
-        let previous = previous_word_boundary(&self.committed, self.caret);
+        let previous = previous_word_delete_boundary(&self.committed, self.caret);
         if previous == self.caret {
             return false;
         }
@@ -244,6 +261,7 @@ impl TextEditState {
 
     pub fn set_preedit(&mut self, text: impl Into<String>, cursor: Option<(usize, usize)>) {
         let text = text.into();
+        self.selection_anchor = None;
         if text.is_empty() && cursor.is_none() {
             self.preedit = None;
         } else {
@@ -260,10 +278,16 @@ impl TextEditState {
         self.insert_text(text)
     }
 
-    pub fn display_text<'a>(&'a self, placeholder: &'a str) -> (&'a str, bool) {
-        if let Some(preedit) = self.preedit.as_ref() {
-            return (&preedit.text, false);
+    pub fn normalize_text(&mut self, text: impl Into<String>) -> bool {
+        let text = text.into();
+        if self.committed == text && self.selection_anchor.is_none() && self.preedit.is_none() {
+            return false;
         }
+        self.set_text(text);
+        true
+    }
+
+    pub fn display_text<'a>(&'a self, placeholder: &'a str) -> (&'a str, bool) {
         if self.committed.is_empty() {
             (placeholder, true)
         } else {
@@ -271,12 +295,29 @@ impl TextEditState {
         }
     }
 
+    pub fn display_text_string(&self, placeholder: &str) -> DisplayText {
+        if let Some(preedit) = self.preedit.as_ref() {
+            let mut text = self.committed.clone();
+            text.insert_str(self.caret, &preedit.text);
+            return DisplayText {
+                text,
+                is_placeholder: false,
+            };
+        }
+        let (text, is_placeholder) = self.display_text(placeholder);
+        DisplayText {
+            text: text.to_string(),
+            is_placeholder,
+        }
+    }
+
     pub fn display_caret_byte(&self) -> usize {
         if let Some(preedit) = self.preedit.as_ref() {
-            return preedit
-                .cursor
-                .map(|(start, _)| start.min(preedit.text.len()))
-                .unwrap_or(preedit.text.len());
+            return self.caret
+                + preedit
+                    .cursor
+                    .map(|(start, _)| start.min(preedit.text.len()))
+                    .unwrap_or(preedit.text.len());
         }
         if self.committed.is_empty() {
             0
@@ -345,6 +386,40 @@ fn previous_word_boundary(text: &str, offset: usize) -> usize {
             break;
         }
         cursor = prev;
+    }
+    let class = previous_char(text, cursor)
+        .map(|(_, ch)| classify_word_char(ch))
+        .unwrap_or(WordCharClass::Whitespace);
+    while let Some((prev, ch)) = previous_char(text, cursor) {
+        if classify_word_char(ch) != class {
+            break;
+        }
+        cursor = prev;
+    }
+    cursor
+}
+
+fn previous_word_delete_boundary(text: &str, offset: usize) -> usize {
+    if text.is_empty() || offset == 0 {
+        return 0;
+    }
+    let mut cursor = clamp_boundary(text, offset);
+    while let Some((prev, ch)) = previous_char(text, cursor) {
+        if !ch.is_whitespace() {
+            break;
+        }
+        cursor = prev;
+    }
+    if previous_char(text, cursor)
+        .map(|(_, ch)| classify_word_char(ch) == WordCharClass::Punctuation)
+        .unwrap_or(false)
+    {
+        while let Some((prev, ch)) = previous_char(text, cursor) {
+            if classify_word_char(ch) != WordCharClass::Punctuation {
+                break;
+            }
+            cursor = prev;
+        }
     }
     let class = previous_char(text, cursor)
         .map(|(_, ch)| classify_word_char(ch))
@@ -469,11 +544,27 @@ mod tests {
         assert_eq!(state.display_text("hint"), ("hint", true));
         state.set_text("abc");
         assert_eq!(state.display_text("hint"), ("abc", false));
-        state.set_preedit("拼音", Some((1, 1)));
-        assert_eq!(state.display_text("hint"), ("拼音", false));
+        state.set_preedit("拼音", Some(("拼".len(), "拼".len())));
+        assert_eq!(
+            state.display_text_string("hint"),
+            DisplayText {
+                text: "abc拼音".to_string(),
+                is_placeholder: false
+            }
+        );
+        assert_eq!(state.display_caret_byte(), "abc拼".len());
         assert!(state.commit_preedit_text("中文"));
         assert_eq!(state.committed(), "abc中文");
         assert_eq!(state.preedit(), None);
+    }
+
+    #[test]
+    fn select_all_selects_committed_text() {
+        let mut state = TextEditState::with_text("hello");
+
+        assert!(state.select_all());
+        assert_eq!(state.selection_range(), Some(0..5));
+        assert!(!state.select_all());
     }
 
     #[test]
@@ -483,7 +574,6 @@ mod tests {
         assert_eq!(state.caret(), 11);
         assert!(state.backspace_word());
         assert_eq!(state.committed(), "alpha gamma");
-        assert!(state.move_word_left(false));
         assert_eq!(state.caret(), 6);
         assert!(state.delete_word_forward());
         assert_eq!(state.committed(), "alpha ");

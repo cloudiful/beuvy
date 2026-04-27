@@ -53,14 +53,14 @@ pub(crate) fn range_progress(value: f32, min: f32, max: f32) -> f32 {
     }
 }
 
-pub(crate) fn can_insert_number_char(chr: char, buffer: &str, min: Option<f32>) -> bool {
+pub(crate) fn can_insert_number_char(chr: char, _buffer: &str, _min: Option<f32>) -> bool {
     if chr.is_ascii_digit() {
         return true;
     }
     if chr == '.' {
-        return !buffer.contains('.');
+        return true;
     }
-    chr == '-' && min.unwrap_or(-1.0) < 0.0 && buffer.is_empty()
+    chr == '-'
 }
 
 fn step_precision(step: f32) -> Option<usize> {
@@ -95,6 +95,15 @@ mod tests {
     fn parse_number_buffer_ignores_incomplete_numbers() {
         assert_eq!(parse_number_buffer(""), None);
         assert_eq!(parse_number_buffer("-"), None);
+        assert_eq!(parse_number_buffer("."), None);
+        assert_eq!(parse_number_buffer("-."), None);
         assert_eq!(parse_number_buffer("1.5"), Some(1.5));
+    }
+
+    #[test]
+    fn number_char_filter_allows_editing_intermediate_values() {
+        assert!(can_insert_number_char('.', "1.0", Some(0.0)));
+        assert!(can_insert_number_char('-', "", None));
+        assert!(can_insert_number_char('-', "", Some(0.0)));
     }
 }

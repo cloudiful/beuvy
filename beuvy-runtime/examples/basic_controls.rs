@@ -71,6 +71,20 @@ fn setup(mut commands: Commands) {
                         ..default()
                     });
                     parent.spawn(AddInput {
+                        name: "long_note".to_string(),
+                        value: "Long single-line value for caret scrolling and selection checks"
+                            .to_string(),
+                        placeholder: "Long note".to_string(),
+                        size_chars: Some(28),
+                        ..default()
+                    });
+                    parent.spawn(AddInput {
+                        name: "ime_text".to_string(),
+                        placeholder: "中文 IME input".to_string(),
+                        size_chars: Some(20),
+                        ..default()
+                    });
+                    parent.spawn(AddInput {
                         name: "disabled_text".to_string(),
                         value: "Locked field".to_string(),
                         size_chars: Some(18),
@@ -94,7 +108,7 @@ fn setup(mut commands: Commands) {
                         parent.spawn(AddInput {
                             name: "threshold".to_string(),
                             input_type: InputType::Number,
-                            value: "0.75".to_string(),
+                            value: ".".to_string(),
                             min: Some(0.0),
                             max: Some(1.0),
                             step: Some(0.05),

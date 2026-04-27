@@ -2,7 +2,10 @@ use super::edit::TextEditState;
 use super::range::{spawn_range_fill, spawn_range_thumb, spawn_range_track};
 use super::text::{default_input_node, input_text_bundle, input_text_marker, input_text_node};
 use super::value::normalize_numeric_value;
-use super::{AddInput, DisabledInput, InputCaret, InputField, InputSelection, InputType};
+use super::{
+    AddInput, DisabledInput, InputCaret, InputClickState, InputField, InputScrollOffset,
+    InputSelection, InputType,
+};
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
@@ -79,6 +82,7 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         range_thumb: None,
                         drag_start_value: 0.0,
                     },
+                    InputClickState::default(),
                 ));
                 if let Some(styles) = root_styles.clone() {
                     entity_commands.insert(styles);
@@ -138,6 +142,7 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                         .unwrap_or_else(crate::style::font_size_control),
                                     ..input_text_bundle(&text_add_input)
                                 },
+                                InputScrollOffset::default(),
                                 text_node,
                             ))
                             .id();

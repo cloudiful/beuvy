@@ -15,7 +15,7 @@ use crate::runtime::state::{
 use crate::value::UiValue;
 use beuvy_runtime::Select;
 use beuvy_runtime::button::ButtonLabel;
-use beuvy_runtime::input::{InputField, InputType, InputValueChangedMessage};
+use beuvy_runtime::input::{InputField, InputType, InputValueChangedMessage, TextEditState};
 use beuvy_runtime::select::SelectOptionState;
 use beuvy_runtime::text::FontResource;
 use bevy::ecs::system::SystemState;
@@ -36,10 +36,11 @@ fn numeric_field_value_sync_accepts_text_value() {
             InputField {
                 name: "volume".to_string(),
                 input_type: InputType::Range,
-                value: "0".to_string(),
                 placeholder: String::new(),
                 text_entity: Entity::PLACEHOLDER,
-                preedit: None,
+                selection_entity: Entity::PLACEHOLDER,
+                caret_entity: Entity::PLACEHOLDER,
+                edit_state: TextEditState::with_text("0"),
                 min: None,
                 max: None,
                 step: None,
@@ -62,7 +63,7 @@ fn numeric_field_value_sync_accepts_text_value() {
         app.world()
             .entity(entity)
             .get::<InputField>()
-            .map(|field| field.value.as_str()),
+            .map(|field| field.value()),
         Some("75")
     );
 }
@@ -80,10 +81,11 @@ fn value_binding_does_not_write_input_change_to_runtime_store() {
             InputField {
                 name: "volume".to_string(),
                 input_type: InputType::Range,
-                value: "10".to_string(),
                 placeholder: String::new(),
                 text_entity: Entity::PLACEHOLDER,
-                preedit: None,
+                selection_entity: Entity::PLACEHOLDER,
+                caret_entity: Entity::PLACEHOLDER,
+                edit_state: TextEditState::with_text("10"),
                 min: None,
                 max: None,
                 step: None,
@@ -124,10 +126,11 @@ fn v_model_writes_input_change_to_runtime_store() {
             InputField {
                 name: "volume".to_string(),
                 input_type: InputType::Range,
-                value: "10".to_string(),
                 placeholder: String::new(),
                 text_entity: Entity::PLACEHOLDER,
-                preedit: None,
+                selection_entity: Entity::PLACEHOLDER,
+                caret_entity: Entity::PLACEHOLDER,
+                edit_state: TextEditState::with_text("10"),
                 min: None,
                 max: None,
                 step: None,

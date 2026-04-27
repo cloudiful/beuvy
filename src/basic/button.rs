@@ -86,7 +86,7 @@ mod tests {
     fn class_object_shorthand_parses_button_binding() {
         let asset = parse_declarative_ui_asset(
             r#"
-<template><button class="btn" :class="{ 'btn-selected': tab === 'save' }">Save</button></template>
+<template><button class="button-root" :class="{ 'btn-selected': tab === 'save' }">Save</button></template>
 <script>let tab: "save" | "load" = "save";</script>
 "#,
         )

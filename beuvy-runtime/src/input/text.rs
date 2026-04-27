@@ -22,20 +22,11 @@ fn input_width_for_chars(size_chars: usize) -> f32 {
 pub(crate) fn input_text_node() -> Node {
     Node {
         display: Display::Block,
+        position_type: PositionType::Relative,
         flex_grow: 1.0,
         min_width: Val::Px(0.0),
         ..default()
     }
-}
-
-fn input_display_text(field: &InputField) -> (&str, Color) {
-    let (text, is_placeholder) = field.edit_state.display_text(&field.placeholder);
-    let color = if is_placeholder {
-        text_placeholder_color()
-    } else {
-        text_primary_color()
-    };
-    (text, color)
 }
 
 pub(crate) fn input_text_bundle(add_input: &AddInput) -> AddText {
@@ -70,14 +61,17 @@ pub(crate) fn update_input_text(
         return;
     }
 
-    let text = if disabled {
+    let display_text = field.edit_state.display_text_string(&field.placeholder);
+    let text = if disabled && field.edit_state.preedit().is_some() {
+        field.value().to_string()
+    } else if disabled {
         if field.value().is_empty() {
-            field.placeholder.as_str()
+            field.placeholder.clone()
         } else {
-            field.value()
+            field.value().to_string()
         }
     } else {
-        input_display_text(field).0
+        display_text.text
     };
     set_plain_text(commands, field.text_entity, text);
 
@@ -86,8 +80,10 @@ pub(crate) fn update_input_text(
     };
     let color = if disabled {
         text_disabled_color()
+    } else if display_text.is_placeholder {
+        text_placeholder_color()
     } else {
-        input_display_text(field).1
+        text_primary_color()
     };
     let text_font = font_resource
         .primary_font
