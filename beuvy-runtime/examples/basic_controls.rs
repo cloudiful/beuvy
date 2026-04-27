@@ -185,7 +185,9 @@ fn setup(mut commands: Commands) {
                         parent.spawn(AddButton {
                             name: "compact".to_string(),
                             text: "Compact".to_string(),
-                            class: Some("button-root min-h-[30px] w-[120px] px-[8px] py-[4px]".to_string()),
+                            class: Some(
+                                "button-root min-h-[30px] w-[120px] px-[8px] py-[4px]".to_string(),
+                            ),
                             ..default()
                         });
                     });
@@ -209,7 +211,10 @@ fn sync_slider_value_label(
     }
 }
 
-fn spawn_column(parent: &mut ChildSpawnerCommands, children: impl FnOnce(&mut ChildSpawnerCommands)) {
+fn spawn_column(
+    parent: &mut ChildSpawnerCommands,
+    children: impl FnOnce(&mut ChildSpawnerCommands),
+) {
     parent
         .spawn(Node {
             width: Val::Px(600.0),
@@ -239,8 +244,8 @@ fn spawn_panel(
     panel.insert(BorderColor::all(Color::srgb_u8(209, 213, 219)));
     panel.insert(BackgroundColor(Color::WHITE));
     panel.with_children(|parent| {
-            spawn_text(parent, title, 18.0, Color::srgb_u8(15, 23, 42));
-            children(parent);
+        spawn_text(parent, title, 18.0, Color::srgb_u8(15, 23, 42));
+        children(parent);
     });
 }
 
@@ -256,12 +261,7 @@ fn spawn_row(parent: &mut ChildSpawnerCommands, children: impl FnOnce(&mut Child
         .with_children(children);
 }
 
-fn spawn_text(
-    parent: &mut ChildSpawnerCommands,
-    text: &str,
-    size: f32,
-    color: Color,
-) {
+fn spawn_text(parent: &mut ChildSpawnerCommands, text: &str, size: f32, color: Color) {
     parent.spawn((
         Node {
             width: Val::Percent(100.0),

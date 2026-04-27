@@ -34,7 +34,12 @@ fn setup(mut commands: Commands) {
             BackgroundColor(Color::srgb_u8(248, 250, 252)),
         ))
         .with_children(|parent| {
-            spawn_text(parent, "Button state showcase", 22.0, Color::srgb_u8(15, 23, 42));
+            spawn_text(
+                parent,
+                "Button state showcase",
+                22.0,
+                Color::srgb_u8(15, 23, 42),
+            );
             spawn_text(
                 parent,
                 "Hover, press, tab-focus, and compare disabled or custom-sized variants.",
@@ -115,12 +120,7 @@ fn spawn_group(
     group.with_children(children);
 }
 
-fn spawn_text(
-    parent: &mut ChildSpawnerCommands,
-    text: &str,
-    size: f32,
-    color: Color,
-) {
+fn spawn_text(parent: &mut ChildSpawnerCommands, text: &str, size: f32, color: Color) {
     parent.spawn((
         Node {
             width: Val::Percent(100.0),

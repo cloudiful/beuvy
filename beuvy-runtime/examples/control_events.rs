@@ -1,10 +1,10 @@
+use beuvy_runtime::button::ButtonClickMessage;
+use beuvy_runtime::input::{InputType, InputValueChangedMessage};
+use beuvy_runtime::text::set_plain_text;
 use beuvy_runtime::{
     AddButton, AddInput, AddSelect, AddSelectOption, AddText, SelectValueChangedMessage,
     UiKitPlugin,
 };
-use beuvy_runtime::button::ButtonClickMessage;
-use beuvy_runtime::input::{InputType, InputValueChangedMessage};
-use beuvy_runtime::text::set_plain_text;
 use bevy::prelude::*;
 use bevy::text::TextLayout;
 
@@ -29,7 +29,14 @@ fn main() {
         }))
         .add_plugins(UiKitPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, (record_button_events, record_input_events, record_select_events))
+        .add_systems(
+            Update,
+            (
+                record_button_events,
+                record_input_events,
+                record_select_events,
+            ),
+        )
         .run();
 }
 
@@ -61,52 +68,57 @@ fn setup(mut commands: Commands) {
             left.insert(BorderColor::all(Color::srgb_u8(203, 213, 225)));
             left.insert(BackgroundColor(Color::WHITE));
             left.with_children(|parent| {
-                    spawn_text(parent, "Interact with these controls", 18.0, Color::srgb_u8(15, 23, 42));
-                    parent.spawn(AddInput {
-                        name: "display_name".to_string(),
-                        placeholder: "Type a display name".to_string(),
-                        size_chars: Some(24),
+                spawn_text(
+                    parent,
+                    "Interact with these controls",
+                    18.0,
+                    Color::srgb_u8(15, 23, 42),
+                );
+                parent.spawn(AddInput {
+                    name: "display_name".to_string(),
+                    placeholder: "Type a display name".to_string(),
+                    size_chars: Some(24),
+                    ..default()
+                });
+                parent.spawn(AddInput {
+                    name: "zoom".to_string(),
+                    input_type: InputType::Range,
+                    value: "35".to_string(),
+                    min: Some(0.0),
+                    max: Some(100.0),
+                    step: Some(5.0),
+                    ..default()
+                });
+                parent.spawn(AddSelect {
+                    name: "theme".to_string(),
+                    value: "light".to_string(),
+                    options: vec![
+                        option("theme_light", "light", "Light"),
+                        option("theme_dark", "dark", "Dark"),
+                        option("theme_hc", "high-contrast", "High Contrast"),
+                    ],
+                    ..default()
+                });
+                parent
+                    .spawn(Node {
+                        column_gap: Val::Px(10.0),
+                        flex_wrap: FlexWrap::Wrap,
                         ..default()
-                    });
-                    parent.spawn(AddInput {
-                        name: "zoom".to_string(),
-                        input_type: InputType::Range,
-                        value: "35".to_string(),
-                        min: Some(0.0),
-                        max: Some(100.0),
-                        step: Some(5.0),
-                        ..default()
-                    });
-                    parent.spawn(AddSelect {
-                        name: "theme".to_string(),
-                        value: "light".to_string(),
-                        options: vec![
-                            option("theme_light", "light", "Light"),
-                            option("theme_dark", "dark", "Dark"),
-                            option("theme_hc", "high-contrast", "High Contrast"),
-                        ],
-                        ..default()
-                    });
-                    parent
-                        .spawn(Node {
-                            column_gap: Val::Px(10.0),
-                            flex_wrap: FlexWrap::Wrap,
+                    })
+                    .with_children(|parent| {
+                        parent.spawn(AddButton {
+                            name: "save".to_string(),
+                            text: "Save".to_string(),
+                            class: Some("button-root w-[120px]".to_string()),
                             ..default()
-                        })
-                        .with_children(|parent| {
-                            parent.spawn(AddButton {
-                                name: "save".to_string(),
-                                text: "Save".to_string(),
-                                class: Some("button-root w-[120px]".to_string()),
-                                ..default()
-                            });
-                            parent.spawn(AddButton {
-                                name: "reset".to_string(),
-                                text: "Reset".to_string(),
-                                class: Some("button-root w-[120px]".to_string()),
-                                ..default()
-                            });
                         });
+                        parent.spawn(AddButton {
+                            name: "reset".to_string(),
+                            text: "Reset".to_string(),
+                            class: Some("button-root w-[120px]".to_string()),
+                            ..default()
+                        });
+                    });
             });
 
             let mut right = parent.spawn(Node {
@@ -121,21 +133,21 @@ fn setup(mut commands: Commands) {
             right.insert(BorderColor::all(Color::srgb_u8(203, 213, 225)));
             right.insert(BackgroundColor(Color::WHITE));
             right.with_children(|parent| {
-                    spawn_text(parent, "Event log", 18.0, Color::srgb_u8(15, 23, 42));
-                    parent.spawn((
-                        EventLogText,
-                        Node {
-                            width: Val::Percent(100.0),
-                            ..default()
-                        },
-                        TextLayout::default(),
-                        AddText {
-                            text: "No events yet.\nClick, type, drag, or select.".to_string(),
-                            size: 14.0,
-                            color: Color::srgb_u8(71, 85, 105),
-                            ..default()
-                        },
-                    ));
+                spawn_text(parent, "Event log", 18.0, Color::srgb_u8(15, 23, 42));
+                parent.spawn((
+                    EventLogText,
+                    Node {
+                        width: Val::Percent(100.0),
+                        ..default()
+                    },
+                    TextLayout::default(),
+                    AddText {
+                        text: "No events yet.\nClick, type, drag, or select.".to_string(),
+                        size: 14.0,
+                        color: Color::srgb_u8(71, 85, 105),
+                        ..default()
+                    },
+                ));
             });
         });
 }
@@ -148,8 +160,10 @@ fn record_button_events(
 ) {
     let mut changed = false;
     for event in events.read() {
-        log.entries
-            .push(format!("button:{} on {:?}", event.button.name, event.entity));
+        log.entries.push(format!(
+            "button:{} on {:?}",
+            event.button.name, event.entity
+        ));
         changed = true;
     }
     if changed {
@@ -221,12 +235,7 @@ fn option(name: &str, value: &str, text: &str) -> AddSelectOption {
     }
 }
 
-fn spawn_text(
-    parent: &mut ChildSpawnerCommands,
-    text: &str,
-    size: f32,
-    color: Color,
-) {
+fn spawn_text(parent: &mut ChildSpawnerCommands, text: &str, size: f32, color: Color) {
     parent.spawn((
         Node {
             width: Val::Percent(100.0),

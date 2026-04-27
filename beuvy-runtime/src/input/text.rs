@@ -95,10 +95,7 @@ pub(crate) fn update_input_text(
         .map(TextFont::from)
         .unwrap_or_default()
         .with_font_size(font_size_control());
-    entity_commands.try_insert((
-        text_font,
-        TextColor(color),
-    ));
+    entity_commands.try_insert((text_font, TextColor(color)));
 }
 
 pub fn set_input_value(

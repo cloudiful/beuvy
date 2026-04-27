@@ -80,7 +80,7 @@ mod tests {
     fn add_text_ignores_entities_despawned_before_apply() {
         let mut app = App::new();
         app.insert_resource(FontResource::default())
-        .register_required_components::<AddText, UiBuildPending>();
+            .register_required_components::<AddText, UiBuildPending>();
 
         let entity = app.world_mut().spawn(AddText::default()).id();
 

@@ -1,7 +1,7 @@
 use crate::select::model::{Select, SelectPanel, SelectTrigger};
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 use bevy::ui::Val::{Auto, Px};
+use bevy::window::PrimaryWindow;
 
 pub(super) const SELECT_PANEL_GAP: f32 = 6.0;
 const SELECT_PANEL_DEFAULT_MAX_HEIGHT: f32 = 360.0;
@@ -15,13 +15,10 @@ pub(crate) fn sync_select_panel_placement(
     ancestors: Query<(&Node, &ComputedNode, &UiGlobalTransform), Without<SelectPanel>>,
     primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let window_rect = primary_window
-        .iter()
-        .next()
-        .map(|window| Rect {
-            min: Vec2::ZERO,
-            max: window.size(),
-        });
+    let window_rect = primary_window.iter().next().map(|window| Rect {
+        min: Vec2::ZERO,
+        max: window.size(),
+    });
 
     for select in &selects {
         if !select.open {

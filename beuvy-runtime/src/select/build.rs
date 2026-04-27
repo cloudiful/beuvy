@@ -25,10 +25,7 @@ const DEFAULT_SELECT_OPTION_CLASS: &str = "select-option";
 const DEFAULT_SELECT_INDICATOR_CLASS: &str = "select-indicator";
 const DEFAULT_SELECT_INDICATOR_LABEL_CLASS: &str = "select-indicator-label";
 
-pub(crate) fn add_select(
-    mut commands: Commands,
-    query: Query<(Entity, &AddSelect)>,
-) {
+pub(crate) fn add_select(mut commands: Commands, query: Query<(Entity, &AddSelect)>) {
     for (entity, add_select) in query {
         let add_select = add_select.clone();
         let root_patch = resolve_classes_with_fallback(

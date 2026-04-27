@@ -8,10 +8,13 @@ use super::{
 use crate::focus::UiFocused;
 use crate::text::FontResource;
 use bevy::input::ButtonState;
-use bevy::input::{ButtonInput, keyboard::{Key, KeyCode, KeyboardInput}};
+use bevy::input::{
+    ButtonInput,
+    keyboard::{Key, KeyCode, KeyboardInput},
+};
 use bevy::input_focus::InputFocus;
-use bevy::prelude::*;
 use bevy::math::Rect;
+use bevy::prelude::*;
 use bevy::text::TextLayoutInfo;
 use bevy::window::{Ime, PrimaryWindow};
 
@@ -31,9 +34,7 @@ pub(super) fn input_click(
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
         let byte = text_byte_for_x(layout, local_x);
-        field
-            .edit_state
-            .set_caret(byte, shift_pressed(&keys));
+        field.edit_state.set_caret(byte, shift_pressed(&keys));
     }
     event.propagate(false);
 }
@@ -320,7 +321,8 @@ pub(super) fn sync_input_edit_visuals(
     )>,
 ) {
     for (entity, field, disabled, focused, input_computed, input_transform) in &fields {
-        if matches!(field.input_type, InputType::Range) || field.text_entity == Entity::PLACEHOLDER {
+        if matches!(field.input_type, InputType::Range) || field.text_entity == Entity::PLACEHOLDER
+        {
             continue;
         }
         let Ok((layout, text_computed, text_transform)) = text_nodes.get(field.text_entity) else {

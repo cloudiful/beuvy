@@ -187,7 +187,11 @@ pub(crate) fn sync_select_option_indicators(
 
 pub(crate) fn sync_select_accessory_layout(
     select_buttons: Query<
-        (&ButtonLabel, Option<&SelectTrigger>, Option<&SelectOptionButton>),
+        (
+            &ButtonLabel,
+            Option<&SelectTrigger>,
+            Option<&SelectOptionButton>,
+        ),
         With<Button>,
     >,
     mut nodes: ParamSet<(

@@ -24,11 +24,11 @@ use std::collections::HashMap;
 
 #[test]
 fn numeric_field_value_sync_accepts_text_value() {
-        let mut app = App::new();
-        app.insert_resource(DeclarativeUiRuntimeValues::default())
-            .init_resource::<DeclarativeRefRects>()
-            .insert_resource(FontResource::default())
-            .add_systems(Update, sync_declarative_field_values);
+    let mut app = App::new();
+    app.insert_resource(DeclarativeUiRuntimeValues::default())
+        .init_resource::<DeclarativeRefRects>()
+        .insert_resource(FontResource::default())
+        .add_systems(Update, sync_declarative_field_values);
 
     let entity = app
         .world_mut()
