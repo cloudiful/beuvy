@@ -28,8 +28,8 @@ pub use state::{
     DeclarativeNodeStyleBindingComponent, DeclarativeOnClickAssignment, DeclarativeRefBinding,
     DeclarativeRefRects, DeclarativeResolvedRef, DeclarativeRootComputedLocals,
     DeclarativeRootUiAsset, DeclarativeRootViewModel, DeclarativeShowExpr, DeclarativeTextBinding,
-    DeclarativeUiRuntimeValues, DeclarativeUiSlot, DeclarativeUiSlots, DeclarativeValueBinding,
-    ResolvedDeclarativeEventBinding,
+    DeclarativeUiEventMessage, DeclarativeUiRuntimeValues, DeclarativeUiSlot, DeclarativeUiSlots,
+    DeclarativeValueBinding, ResolvedDeclarativeEventBinding,
 };
 pub use style::{apply_node_style, parse_hex_color, runtime_visual_styles};
 pub use sync::resolve_runtime_path;

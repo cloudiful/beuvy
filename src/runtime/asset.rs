@@ -1,5 +1,6 @@
 use super::state::{DeclarativeRefRects, DeclarativeUiRuntimeValues};
 use super::sync::{
+    dispatch_declarative_control_events,
     apply_declarative_local_state_assignments, materialize_declarative_overflow_scroll,
     materialize_declarative_refs, sync_declarative_class_bindings, sync_declarative_disabled,
     sync_declarative_field_values, sync_declarative_node_style_bindings,
@@ -9,6 +10,7 @@ use super::sync::{
 use crate::ast::DeclarativeUiAsset;
 use crate::error::DeclarativeUiAssetLoadError;
 use crate::style::{BeuvyStyleSource, replace_style_source};
+use crate::runtime::state::DeclarativeUiEventMessage;
 use bevy::asset::{AssetLoader, LoadContext, io::Reader};
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
@@ -63,6 +65,7 @@ impl Plugin for DeclarativeUiPlugin {
         replace_style_source(style_source);
         app.init_asset::<DeclarativeUiAsset>()
             .register_asset_loader(DeclarativeUiAssetLoader)
+            .add_message::<DeclarativeUiEventMessage>()
             .init_resource::<DeclarativeUiRuntimeValues>()
             .init_resource::<DeclarativeRefRects>()
             .add_systems(
@@ -77,6 +80,7 @@ impl Plugin for DeclarativeUiPlugin {
                     sync_declarative_field_values,
                     write_input_values_to_runtime_store,
                     write_select_values_to_runtime_store,
+                    dispatch_declarative_control_events,
                     apply_declarative_local_state_assignments,
                     sync_declarative_class_bindings,
                     sync_declarative_ref_rects.after(materialize_declarative_refs),

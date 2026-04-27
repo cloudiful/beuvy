@@ -1,26 +1,57 @@
 use super::*;
 use crate::ast::{
     DeclarativeBinaryOp, DeclarativeClassBinding, DeclarativeConditionExpr, DeclarativeConditional,
-    DeclarativeForEach, DeclarativeNodeStyleBinding, DeclarativeNumber, DeclarativeRefSource,
-    DeclarativeRuntimeExpr, DeclarativeRuntimeStmt, DeclarativeSelectOption,
-    DeclarativeUiTextContent, DeclarativeUiTextSegment,
+    DeclarativeEventKind, DeclarativeForEach, DeclarativeNodeStyleBinding, DeclarativeNumber,
+    DeclarativeRefSource, DeclarativeRuntimeExpr, DeclarativeRuntimeStmt,
+    DeclarativeSelectOption, DeclarativeUiTextContent, DeclarativeUiTextSegment,
 };
 use crate::runtime::state::{
     DeclarativeClassBindings, DeclarativeLocalState, DeclarativeModelBinding,
-    DeclarativeNodeStyleBindingComponent, DeclarativeRefBinding, DeclarativeRefRects,
-    DeclarativeResolvedRef, DeclarativeRootComputedLocals, DeclarativeRootViewModel,
-    DeclarativeSelectTextBindings, DeclarativeShowExpr, DeclarativeTextBinding,
-    DeclarativeUiRuntimeValues, DeclarativeValueBinding,
+    DeclarativeEventBindings, DeclarativeNodeStyleBindingComponent, DeclarativeRefBinding,
+    DeclarativeRefRects, DeclarativeResolvedRef, DeclarativeRootComputedLocals,
+    DeclarativeRootViewModel, DeclarativeSelectTextBindings, DeclarativeShowExpr,
+    DeclarativeTextBinding, DeclarativeUiEventMessage, DeclarativeUiRuntimeValues,
+    DeclarativeValueBinding, ResolvedDeclarativeEventBinding,
 };
 use crate::value::UiValue;
 use beuvy_runtime::Select;
 use beuvy_runtime::button::ButtonLabel;
-use beuvy_runtime::input::{InputField, InputType, InputValueChangedMessage};
-use beuvy_runtime::select::SelectOptionState;
+use beuvy_runtime::button::ButtonClickMessage;
+use beuvy_runtime::input::{
+    InputField, InputType, InputValueChangedMessage, InputValueCommittedMessage,
+};
+use beuvy_runtime::select::{SelectOptionState, SelectValueChangedMessage};
 use beuvy_runtime::text::FontResource;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+fn test_input_field(input_type: InputType, value: &str) -> InputField {
+    let mut field = InputField {
+        name: "volume".to_string(),
+        input_type,
+        placeholder: String::new(),
+        text_entity: Entity::PLACEHOLDER,
+        selection_entity: Entity::PLACEHOLDER,
+        caret_entity: Entity::PLACEHOLDER,
+        edit_state: Default::default(),
+        min: None,
+        max: None,
+        step: None,
+        range_track: None,
+        range_fill: None,
+        range_thumb: None,
+        drag_start_value: 0.0,
+        focused: false,
+        dirty_since_focus: false,
+        value_on_focus: String::new(),
+        horizontal_scroll_px: 0.0,
+        last_click_at: 0.0,
+        click_count: 0,
+    };
+    field.set_value(value.to_string());
+    field
+}
 
 #[test]
 fn numeric_field_value_sync_accepts_text_value() {
@@ -33,21 +64,7 @@ fn numeric_field_value_sync_accepts_text_value() {
     let entity = app
         .world_mut()
         .spawn((
-            InputField {
-                name: "volume".to_string(),
-                input_type: InputType::Range,
-                value: "0".to_string(),
-                placeholder: String::new(),
-                text_entity: Entity::PLACEHOLDER,
-                preedit: None,
-                min: None,
-                max: None,
-                step: None,
-                range_track: None,
-                range_fill: None,
-                range_thumb: None,
-                drag_start_value: 0.0,
-            },
+            test_input_field(InputType::Range, "0"),
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeRootViewModel(UiValue::object([(
                 "settings",
@@ -62,7 +79,7 @@ fn numeric_field_value_sync_accepts_text_value() {
         app.world()
             .entity(entity)
             .get::<InputField>()
-            .map(|field| field.value.as_str()),
+            .map(InputField::value),
         Some("75")
     );
 }
@@ -77,21 +94,7 @@ fn value_binding_does_not_write_input_change_to_runtime_store() {
     let entity = app
         .world_mut()
         .spawn((
-            InputField {
-                name: "volume".to_string(),
-                input_type: InputType::Range,
-                value: "10".to_string(),
-                placeholder: String::new(),
-                text_entity: Entity::PLACEHOLDER,
-                preedit: None,
-                min: None,
-                max: None,
-                step: None,
-                range_track: None,
-                range_fill: None,
-                range_thumb: None,
-                drag_start_value: 0.0,
-            },
+            test_input_field(InputType::Range, "10"),
             DeclarativeValueBinding("settings.volume".to_string()),
         ))
         .id();
@@ -121,21 +124,7 @@ fn v_model_writes_input_change_to_runtime_store() {
     let entity = app
         .world_mut()
         .spawn((
-            InputField {
-                name: "volume".to_string(),
-                input_type: InputType::Range,
-                value: "10".to_string(),
-                placeholder: String::new(),
-                text_entity: Entity::PLACEHOLDER,
-                preedit: None,
-                min: None,
-                max: None,
-                step: None,
-                range_track: None,
-                range_fill: None,
-                range_thumb: None,
-                drag_start_value: 0.0,
-            },
+            test_input_field(InputType::Range, "10"),
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeModelBinding,
         ))
@@ -153,6 +142,127 @@ fn v_model_writes_input_change_to_runtime_store() {
             .resource::<DeclarativeUiRuntimeValues>()
             .get("settings.volume"),
         Some(&UiValue::Text("42".to_string()))
+    );
+}
+
+#[test]
+fn focused_dirty_input_skips_external_value_sync() {
+    let mut app = App::new();
+    app.insert_resource(DeclarativeUiRuntimeValues::default())
+        .init_resource::<DeclarativeRefRects>()
+        .insert_resource(FontResource::default())
+        .add_systems(Update, sync_declarative_field_values);
+
+    let mut field = test_input_field(InputType::Text, "draft");
+    field.focused = true;
+    field.dirty_since_focus = true;
+    field.value_on_focus = "server".to_string();
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            field,
+            DeclarativeValueBinding("settings.label".to_string()),
+            DeclarativeRootViewModel(UiValue::object([(
+                "settings",
+                UiValue::object([("label", UiValue::from("server"))]),
+            )])),
+        ))
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        app.world().entity(entity).get::<InputField>().map(InputField::value),
+        Some("draft")
+    );
+}
+
+#[test]
+fn focused_clean_input_accepts_external_value_sync() {
+    let mut app = App::new();
+    app.insert_resource(DeclarativeUiRuntimeValues::default())
+        .init_resource::<DeclarativeRefRects>()
+        .insert_resource(FontResource::default())
+        .add_systems(Update, sync_declarative_field_values);
+
+    let mut field = test_input_field(InputType::Text, "draft");
+    field.focused = true;
+    field.dirty_since_focus = false;
+    field.value_on_focus = "draft".to_string();
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            field,
+            DeclarativeValueBinding("settings.label".to_string()),
+            DeclarativeRootViewModel(UiValue::object([(
+                "settings",
+                UiValue::object([("label", UiValue::from("server"))]),
+            )])),
+        ))
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        app.world().entity(entity).get::<InputField>().map(InputField::value),
+        Some("server")
+    );
+}
+
+#[test]
+fn declarative_event_bindings_dispatch_input_and_change_messages() {
+    let mut app = App::new();
+    app.add_message::<ButtonClickMessage>()
+        .add_message::<InputValueChangedMessage>()
+        .add_message::<InputValueCommittedMessage>()
+        .add_message::<SelectValueChangedMessage>()
+        .add_message::<DeclarativeUiEventMessage>()
+        .add_systems(Update, dispatch_declarative_control_events);
+
+    let entity = app
+        .world_mut()
+        .spawn(DeclarativeEventBindings(vec![
+            ResolvedDeclarativeEventBinding {
+                kind: DeclarativeEventKind::Input,
+                action_id: "setting.input".to_string(),
+                params: BTreeMap::from([("key".to_string(), "volume".to_string())]),
+            },
+            ResolvedDeclarativeEventBinding {
+                kind: DeclarativeEventKind::Change,
+                action_id: "setting.change".to_string(),
+                params: BTreeMap::from([("key".to_string(), "volume".to_string())]),
+            },
+        ]))
+        .id();
+
+    app.world_mut().write_message(InputValueChangedMessage {
+        entity,
+        name: "volume".to_string(),
+        value: "41".to_string(),
+    });
+    app.world_mut().write_message(InputValueCommittedMessage {
+        entity,
+        name: "volume".to_string(),
+        value: "42".to_string(),
+    });
+
+    app.update();
+
+    let mut state: SystemState<MessageReader<DeclarativeUiEventMessage>> =
+        SystemState::new(app.world_mut());
+    let mut messages = state.get_mut(app.world_mut());
+    let events = messages
+        .read()
+        .map(|event| (event.kind, event.action_id.clone()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        events,
+        vec![
+            (DeclarativeEventKind::Input, "setting.input".to_string()),
+            (DeclarativeEventKind::Change, "setting.change".to_string()),
+        ]
     );
 }
 

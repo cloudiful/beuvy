@@ -24,6 +24,7 @@ pub(crate) fn input_text_node() -> Node {
         display: Display::Block,
         flex_grow: 1.0,
         min_width: Val::Px(0.0),
+        position_type: PositionType::Relative,
         ..default()
     }
 }
@@ -111,6 +112,10 @@ pub fn set_input_value(
     }
 
     field.set_value(value);
+    field.horizontal_scroll_px = 0.0;
+    if field.focused && !field.dirty_since_focus {
+        field.value_on_focus = field.value().to_string();
+    }
     update_input_text(commands, font_resource, field, disabled);
     true
 }

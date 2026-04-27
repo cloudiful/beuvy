@@ -34,6 +34,9 @@ pub(crate) fn sync_declarative_field_values(
     mut selects: Query<(Entity, &DeclarativeValueBinding, &mut Select)>,
 ) {
     for (entity, binding, mut field, disabled) in &mut inputs {
+        if field.focused && field.dirty_since_focus {
+            continue;
+        }
         let Some(value) = resolve_runtime_path(
             entity,
             &binding.0,

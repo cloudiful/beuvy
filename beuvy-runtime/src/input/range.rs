@@ -1,9 +1,11 @@
 use super::value::{format_numeric_value, range_progress, snap_numeric_value};
 use super::{
-    DisabledInput, InputField, InputValueChangedMessage, RangeFill, RangeThumb, RangeTrack,
+    DisabledInput, InputField, InputValueChangedMessage, InputValueCommittedMessage, RangeFill,
+    RangeThumb, RangeTrack, push_value_committed, set_input_focus,
 };
 use bevy::picking::Pickable;
 use bevy::prelude::*;
+use bevy::input_focus::InputFocus;
 use bevy::ui::{ComputedNode, ComputedUiRenderTargetInfo, UiGlobalTransform, UiScale, Val::Px};
 
 pub(crate) const RANGE_TRACK_WIDTH: f32 = 240.0;
@@ -154,6 +156,7 @@ pub(crate) fn sync_range_visuals(
 
 fn range_track_press(
     mut event: On<Pointer<Press>>,
+    mut input_focus: ResMut<InputFocus>,
     tracks: Query<(
         &RangeTrack,
         &ComputedNode,
@@ -175,6 +178,8 @@ fn range_track_press(
     if disabled {
         return;
     }
+    set_input_focus(&mut input_focus, track.input);
+    field.begin_focus_session();
     field.drag_start_value = field.numeric_value().unwrap_or(field.min.unwrap_or(0.0));
     let thumb_size = field
         .range_thumb
@@ -195,6 +200,7 @@ fn range_track_press(
 
 fn range_track_drag_start(
     mut event: On<Pointer<DragStart>>,
+    mut input_focus: ResMut<InputFocus>,
     tracks: Query<&RangeTrack>,
     mut fields: Query<(&mut InputField, Has<DisabledInput>)>,
 ) {
@@ -208,6 +214,8 @@ fn range_track_drag_start(
     if disabled {
         return;
     }
+    set_input_focus(&mut input_focus, track.input);
+    field.begin_focus_session();
     field.drag_start_value = field.numeric_value().unwrap_or(field.min.unwrap_or(0.0));
 }
 
@@ -244,7 +252,22 @@ fn range_track_drag(
     commit_range_value(track.input, &mut field, value, &mut value_changed);
 }
 
-fn range_track_drag_end(mut event: On<Pointer<DragEnd>>) {
+fn range_track_drag_end(
+    mut event: On<Pointer<DragEnd>>,
+    tracks: Query<&RangeTrack>,
+    mut fields: Query<&mut InputField>,
+    mut committed: MessageWriter<InputValueCommittedMessage>,
+) {
+    let Ok(track) = tracks.get(event.entity) else {
+        return;
+    };
+    if let Ok(mut field) = fields.get_mut(track.input) {
+        if field.dirty_since_focus {
+            field.value_on_focus = field.value().to_string();
+            field.dirty_since_focus = false;
+            push_value_committed(&mut committed, track.input, &field);
+        }
+    }
     event.propagate(false);
 }
 
@@ -260,6 +283,7 @@ fn commit_range_value(
         return;
     }
     field.set_value(next_value.clone());
+    field.mark_dirty_from_value();
     value_changed.write(InputValueChangedMessage {
         entity,
         name: field.name.clone(),
@@ -341,6 +365,12 @@ mod tests {
             range_fill: None,
             range_thumb: None,
             drag_start_value: 0.0,
+            focused: false,
+            dirty_since_focus: false,
+            value_on_focus: String::new(),
+            horizontal_scroll_px: 0.0,
+            last_click_at: 0.0,
+            click_count: 0,
         }
     }
 

@@ -79,3 +79,55 @@ impl Plugin for UiKitPlugin {
             );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyCode;
+    use bevy::ui::UiScale;
+
+    fn test_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<UiScale>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .insert_resource(text::FontResource::default())
+            .add_plugins(MinimalPlugins);
+        app
+    }
+
+    #[test]
+    fn input_plugin_initializes_without_conflicting_queries() {
+        let mut app = test_app();
+        app.add_plugins(input::InputPlugin);
+        app.update();
+    }
+
+    #[test]
+    fn button_plugin_initializes_without_conflicting_queries() {
+        let mut app = test_app();
+        app.add_plugins(button::ButtonPlugin::default());
+        app.update();
+    }
+
+    #[test]
+    fn focus_plugin_initializes_without_conflicting_queries() {
+        let mut app = test_app();
+        app.add_plugins(focus::FocusableUiPlugin);
+        app.update();
+    }
+
+    #[test]
+    fn state_style_plugin_initializes_without_conflicting_queries() {
+        let mut app = test_app();
+        app.add_plugins(interaction_style::UiStateStylePlugin);
+        app.update();
+    }
+
+    #[test]
+    fn ui_kit_plugin_initializes_without_conflicting_queries() {
+        let mut app = test_app();
+        app.add_plugins(UiKitPlugin);
+        app.update();
+    }
+}

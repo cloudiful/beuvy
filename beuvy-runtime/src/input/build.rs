@@ -78,6 +78,12 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         range_fill: None,
                         range_thumb: None,
                         drag_start_value: 0.0,
+                        focused: false,
+                        dirty_since_focus: false,
+                        value_on_focus: String::new(),
+                        horizontal_scroll_px: 0.0,
+                        last_click_at: 0.0,
+                        click_count: 0,
                     },
                 ));
                 if let Some(styles) = root_styles.clone() {

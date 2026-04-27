@@ -43,6 +43,14 @@ pub struct DeclarativeResolvedRef(pub String);
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
 pub struct DeclarativeEventBindings(pub Vec<ResolvedDeclarativeEventBinding>);
 
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeUiEventMessage {
+    pub entity: Entity,
+    pub kind: DeclarativeEventKind,
+    pub action_id: String,
+    pub params: BTreeMap<String, String>,
+}
+
 #[derive(Component, Debug, Clone, Default, PartialEq)]
 pub struct DeclarativeLocalState(pub HashMap<String, UiValue>);
 

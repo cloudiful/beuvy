@@ -63,6 +63,38 @@ pub(crate) fn can_insert_number_char(chr: char, buffer: &str, min: Option<f32>) 
     chr == '-' && min.unwrap_or(-1.0) < 0.0 && buffer.is_empty()
 }
 
+pub(crate) fn is_valid_number_buffer(buffer: &str, min: Option<f32>) -> bool {
+    let trimmed = buffer.trim();
+    if trimmed.is_empty() || trimmed == "-" || trimmed == "." || trimmed == "-." {
+        return true;
+    }
+    if trimmed.parse::<f32>().is_ok() {
+        return true;
+    }
+
+    let mut chars = trimmed.chars().peekable();
+    let mut seen_digit = false;
+    let mut seen_dot = false;
+    let mut seen_sign = false;
+
+    while let Some(chr) = chars.next() {
+        match chr {
+            '-' if !seen_digit && !seen_dot && !seen_sign && min.unwrap_or(-1.0) < 0.0 => {
+                seen_sign = true;
+            }
+            '.' if !seen_dot => {
+                seen_dot = true;
+            }
+            digit if digit.is_ascii_digit() => {
+                seen_digit = true;
+            }
+            _ => return false,
+        }
+    }
+
+    true
+}
+
 fn step_precision(step: f32) -> Option<usize> {
     if step.fract().abs() <= f32::EPSILON {
         return Some(0);

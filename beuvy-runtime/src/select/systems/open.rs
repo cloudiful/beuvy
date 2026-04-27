@@ -8,8 +8,7 @@ pub(crate) fn close_selects_on_foreign_click(
     mut pointer_clicks: MessageReader<Pointer<Click>>,
     trigger_buttons: Query<(), With<SelectTrigger>>,
     option_buttons: Query<(), With<SelectOptionButton>>,
-    select_entities: Query<Entity, With<Select>>,
-    mut select_states: Query<&mut Select>,
+    mut select_queries: ParamSet<(Query<Entity, With<Select>>, Query<&mut Select>)>,
     mut panel_nodes: Query<&mut Node, With<SelectPanel>>,
 ) {
     let Some(click) = pointer_clicks.read().next() else {
@@ -19,7 +18,9 @@ pub(crate) fn close_selects_on_foreign_click(
         return;
     }
 
-    for entity in &select_entities {
+    let entities = select_queries.p0().iter().collect::<Vec<_>>();
+    let mut select_states = select_queries.p1();
+    for entity in entities {
         set_select_open(&mut select_states, &mut panel_nodes, entity, false);
     }
 }
@@ -27,8 +28,7 @@ pub(crate) fn close_selects_on_foreign_click(
 pub(crate) fn select_trigger_click(
     event: On<Pointer<Click>>,
     trigger_buttons: Query<(&SelectTrigger, Has<DisabledButton>)>,
-    select_entities: Query<Entity, With<Select>>,
-    mut select_states: Query<&mut Select>,
+    mut select_queries: ParamSet<(Query<Entity, With<Select>>, Query<&mut Select>)>,
     mut panel_nodes: Query<&mut Node, With<SelectPanel>>,
 ) {
     let Ok((trigger, disabled)) = trigger_buttons.get(event.entity) else {
@@ -38,12 +38,15 @@ pub(crate) fn select_trigger_click(
         return;
     }
 
-    let should_open = select_states
+    let should_open = select_queries
+        .p1()
         .get(trigger.select)
         .map(|select| !select.open && !select.disabled)
         .unwrap_or(false);
 
-    for entity in &select_entities {
+    let entities = select_queries.p0().iter().collect::<Vec<_>>();
+    let mut select_states = select_queries.p1();
+    for entity in entities {
         set_select_open(
             &mut select_states,
             &mut panel_nodes,

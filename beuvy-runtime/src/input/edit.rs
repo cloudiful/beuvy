@@ -59,6 +59,16 @@ impl TextEditState {
         self.selection_anchor = None;
     }
 
+    pub fn select_all(&mut self) -> bool {
+        if self.committed.is_empty() {
+            return false;
+        }
+        self.selection_anchor = Some(0);
+        self.caret = self.committed.len();
+        self.preedit = None;
+        true
+    }
+
     pub fn set_text(&mut self, text: impl Into<String>) {
         self.committed = text.into();
         self.caret = self.committed.len();
@@ -220,7 +230,7 @@ impl TextEditState {
         if self.replace_selection("") {
             return true;
         }
-        let previous = previous_word_boundary(&self.committed, self.caret);
+        let previous = previous_word_delete_boundary(&self.committed, self.caret);
         if previous == self.caret {
             return false;
         }
@@ -234,7 +244,7 @@ impl TextEditState {
         if self.replace_selection("") {
             return true;
         }
-        let next = next_word_boundary(&self.committed, self.caret);
+        let next = next_word_delete_boundary(&self.committed, self.caret);
         if next == self.caret {
             return false;
         }
@@ -346,14 +356,19 @@ fn previous_word_boundary(text: &str, offset: usize) -> usize {
         }
         cursor = prev;
     }
-    let class = previous_char(text, cursor)
-        .map(|(_, ch)| classify_word_char(ch))
-        .unwrap_or(WordCharClass::Whitespace);
-    while let Some((prev, ch)) = previous_char(text, cursor) {
-        if classify_word_char(ch) != class {
+    let Some((mut prev, ch)) = previous_char(text, cursor) else {
+        return cursor;
+    };
+    let class = classify_word_char(ch);
+    loop {
+        cursor = prev;
+        let Some((next_prev, next_ch)) = previous_char(text, cursor) else {
+            break;
+        };
+        if classify_word_char(next_ch) != class {
             break;
         }
-        cursor = prev;
+        prev = next_prev;
     }
     cursor
 }
@@ -369,11 +384,12 @@ fn next_word_boundary(text: &str, offset: usize) -> usize {
         }
         cursor = next_boundary(text, cursor).unwrap_or(text.len());
     }
-    let class = current_char(text, cursor)
-        .map(|(_, ch)| classify_word_char(ch))
-        .unwrap_or(WordCharClass::Whitespace);
-    while let Some((_, ch)) = current_char(text, cursor) {
-        if classify_word_char(ch) != class {
+    let Some((_, ch)) = current_char(text, cursor) else {
+        return cursor;
+    };
+    let class = classify_word_char(ch);
+    while let Some((_, current)) = current_char(text, cursor) {
+        if classify_word_char(current) != class {
             break;
         }
         cursor = next_boundary(text, cursor).unwrap_or(text.len());
@@ -396,6 +412,34 @@ fn surrounding_word_bounds(text: &str, offset: usize) -> (usize, usize) {
     let start = previous_word_boundary(text, offset);
     let end = next_word_boundary(text, offset);
     (start, end)
+}
+
+fn previous_word_delete_boundary(text: &str, offset: usize) -> usize {
+    let cursor = previous_word_boundary(text, offset);
+    if cursor == 0 {
+        return 0;
+    }
+    let Some((_, ch)) = current_char(text, cursor) else {
+        return cursor;
+    };
+    if classify_word_char(ch) != WordCharClass::Punctuation {
+        return cursor;
+    }
+    previous_word_boundary(text, cursor)
+}
+
+fn next_word_delete_boundary(text: &str, offset: usize) -> usize {
+    let cursor = next_word_boundary(text, offset);
+    if cursor >= text.len() {
+        return cursor;
+    }
+    let Some((_, ch)) = current_char(text, cursor) else {
+        return cursor;
+    };
+    if classify_word_char(ch) != WordCharClass::Punctuation {
+        return cursor;
+    }
+    next_word_boundary(text, cursor)
 }
 
 fn previous_char(text: &str, offset: usize) -> Option<(usize, char)> {
@@ -483,7 +527,6 @@ mod tests {
         assert_eq!(state.caret(), 11);
         assert!(state.backspace_word());
         assert_eq!(state.committed(), "alpha gamma");
-        assert!(state.move_word_left(false));
         assert_eq!(state.caret(), 6);
         assert!(state.delete_word_forward());
         assert_eq!(state.committed(), "alpha ");
@@ -494,5 +537,12 @@ mod tests {
         let mut state = TextEditState::with_text("hello world");
         assert!(state.select_word_at(7));
         assert_eq!(state.selection_range(), Some(6..11));
+    }
+
+    #[test]
+    fn select_all_marks_full_range() {
+        let mut state = TextEditState::with_text("alpha");
+        assert!(state.select_all());
+        assert_eq!(state.selection_range(), Some(0..5));
     }
 }

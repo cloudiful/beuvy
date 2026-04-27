@@ -4,6 +4,8 @@ mod class;
 mod disabled;
 #[path = "sync/expression.rs"]
 mod expression;
+#[path = "sync/events.rs"]
+mod events;
 #[path = "sync/local_state.rs"]
 mod local_state;
 #[path = "sync/ref_rect.rs"]
@@ -27,6 +29,7 @@ mod visibility;
 pub(crate) use class::DeclarativeClassBaseline;
 pub(crate) use class::sync_declarative_class_bindings;
 pub(crate) use disabled::sync_declarative_disabled;
+pub(crate) use events::dispatch_declarative_control_events;
 pub(crate) use expression::{evaluate_runtime_expr, truthy};
 pub(crate) use local_state::apply_declarative_local_state_assignments;
 pub(crate) use ref_rect::sync_declarative_ref_rects;
