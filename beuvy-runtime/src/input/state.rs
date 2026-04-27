@@ -407,12 +407,11 @@ fn text_x_for_byte(layout: &TextLayoutInfo, byte: usize) -> f32 {
 
     let mut current_x = 0.0;
     for glyph in &layout.glyphs {
-        let glyph_x = glyph.position.x / glyph_scale;
-        let glyph_width = glyph.size.x / glyph_scale;
+        let glyph_x = glyph_left_x(glyph, glyph_scale);
         if byte <= glyph.byte_index {
             return glyph_x;
         }
-        current_x = glyph_x + glyph_width;
+        current_x = glyph_right_x(glyph, glyph_scale);
         if byte <= glyph.byte_index + glyph.byte_length {
             return current_x;
         }
@@ -431,9 +430,9 @@ fn text_byte_for_x(layout: &TextLayoutInfo, x: f32) -> usize {
     let glyph_scale = layout.scale_factor.max(f32::EPSILON);
 
     for glyph in &layout.glyphs {
-        let start = glyph.position.x / glyph_scale;
-        let width = glyph.size.x / glyph_scale;
-        let end = start + width;
+        let start = glyph_left_x(glyph, glyph_scale);
+        let end = glyph_right_x(glyph, glyph_scale);
+        let width = end - start;
         let midpoint = start + width * 0.5;
         if x < midpoint {
             return glyph.byte_index;
@@ -450,6 +449,14 @@ fn text_byte_for_x(layout: &TextLayoutInfo, x: f32) -> usize {
         .unwrap_or(0)
 }
 
+fn glyph_left_x(glyph: &bevy::text::PositionedGlyph, scale: f32) -> f32 {
+    (glyph.position.x - glyph.size.x * 0.5) / scale
+}
+
+fn glyph_right_x(glyph: &bevy::text::PositionedGlyph, scale: f32) -> f32 {
+    (glyph.position.x + glyph.size.x * 0.5) / scale
+}
+
 fn shift_pressed(keys: &ButtonInput<KeyCode>) -> bool {
     keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight)
 }
@@ -459,5 +466,62 @@ fn can_insert_char(field: &InputField, chr: char) -> bool {
         InputType::Text => is_printable_char(chr),
         InputType::Number => can_insert_number_char(chr, field.value(), field.min),
         InputType::Range => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::asset::AssetId;
+    use bevy::image::Image;
+    use bevy::math::{IVec2, Vec2};
+    use bevy::text::{GlyphAtlasInfo, GlyphAtlasLocation, PositionedGlyph};
+
+    #[test]
+    fn text_x_for_byte_uses_glyph_edges_not_centers() {
+        let layout = layout_with_glyphs(&[(0, 1, 15.0, 10.0), (1, 1, 25.0, 10.0)]);
+
+        assert_eq!(text_x_for_byte(&layout, 0), 0.0);
+        assert_eq!(text_x_for_byte(&layout, 1), 20.0);
+        assert_eq!(text_x_for_byte(&layout, 2), 30.0);
+    }
+
+    #[test]
+    fn text_byte_for_x_uses_glyph_edge_midpoints() {
+        let layout = layout_with_glyphs(&[(0, 1, 15.0, 10.0), (1, 1, 25.0, 10.0)]);
+
+        assert_eq!(text_byte_for_x(&layout, 9.9), 0);
+        assert_eq!(text_byte_for_x(&layout, 15.0), 1);
+        assert_eq!(text_byte_for_x(&layout, 24.9), 1);
+        assert_eq!(text_byte_for_x(&layout, 25.0), 2);
+    }
+
+    fn layout_with_glyphs(glyphs: &[(usize, usize, f32, f32)]) -> TextLayoutInfo {
+        TextLayoutInfo {
+            scale_factor: 1.0,
+            glyphs: glyphs
+                .iter()
+                .map(
+                    |(byte_index, byte_length, center_x, width)| PositionedGlyph {
+                        position: Vec2::new(*center_x, 12.0),
+                        size: Vec2::new(*width, 16.0),
+                        atlas_info: GlyphAtlasInfo {
+                            texture: AssetId::<Image>::invalid(),
+                            texture_atlas: AssetId::invalid(),
+                            location: GlyphAtlasLocation {
+                                glyph_index: 0,
+                                offset: IVec2::ZERO,
+                            },
+                        },
+                        span_index: 0,
+                        line_index: 0,
+                        byte_index: *byte_index,
+                        byte_length: *byte_length,
+                    },
+                )
+                .collect(),
+            run_geometry: Vec::new(),
+            size: Vec2::new(30.0, 16.0),
+        }
     }
 }
