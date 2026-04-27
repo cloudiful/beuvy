@@ -41,6 +41,9 @@ pub(crate) fn parse_declarative_input_node(
     let size_chars = attr(node, "size")
         .map(|raw| parse_usize(node, "size", raw))
         .transpose()?;
+    let rows = attr(node, "rows")
+        .map(|raw| parse_usize(node, "rows", raw))
+        .transpose()?;
     let (disabled, disabled_expr) = parse_bool_or_condition_attr(node, "disabled", state_specs)?;
     let show_expr = parse_show_attr(node, state_specs)?;
     Ok(DeclarativeUiNode::Input {
@@ -61,6 +64,7 @@ pub(crate) fn parse_declarative_input_node(
             .unwrap_or_default()
             .to_string(),
         size_chars,
+        rows,
         min: parse_f32_attr(node, "min")?,
         max: parse_f32_attr(node, "max")?,
         step: parse_f32_attr(node, "step")?,
@@ -73,16 +77,77 @@ pub(crate) fn parse_declarative_input_node(
     })
 }
 
+pub(crate) fn parse_declarative_textarea_node(
+    node: XmlNode<'_, '_>,
+    state_specs: &BTreeMap<String, DeclarativeStateSpec>,
+) -> Result<DeclarativeUiNode, DeclarativeUiAssetLoadError> {
+    let parsed = parse_declarative_input_node(node, state_specs)?;
+    let DeclarativeUiNode::Input {
+        node_id,
+        name,
+        class,
+        class_bindings,
+        conditional,
+        value,
+        value_binding,
+        model_binding,
+        ref_binding,
+        event_bindings,
+        style_binding,
+        placeholder,
+        size_chars,
+        rows,
+        node_override,
+        visual_style,
+        state_visual_styles,
+        disabled,
+        disabled_expr,
+        show_expr,
+        ..
+    } = parsed
+    else {
+        unreachable!();
+    };
+
+    Ok(DeclarativeUiNode::Input {
+        node_id,
+        name,
+        input_type: InputType::Textarea,
+        class,
+        class_bindings,
+        conditional,
+        value,
+        value_binding,
+        model_binding,
+        ref_binding,
+        event_bindings,
+        style_binding,
+        placeholder,
+        size_chars,
+        rows,
+        min: None,
+        max: None,
+        step: None,
+        node_override,
+        visual_style,
+        state_visual_styles,
+        disabled,
+        disabled_expr,
+        show_expr,
+    })
+}
+
 fn parse_input_type(node: XmlNode<'_, '_>) -> Result<InputType, DeclarativeUiAssetLoadError> {
     match attr(node, "type").unwrap_or("text") {
         "" | "text" => Ok(InputType::Text),
+        "textarea" => Ok(InputType::Textarea),
         "number" => Ok(InputType::Number),
         "range" => Ok(InputType::Range),
         raw => Err(attr_error(
             node,
             "type",
             raw,
-            "expected text, number, or range",
+            "expected text, textarea, number, or range",
         )),
     }
 }
@@ -290,5 +355,27 @@ mod tests {
                 "settings.visible".to_string()
             ))
         );
+    }
+
+    #[test]
+    fn textarea_tag_parses_as_multiline_text_input() {
+        let asset = parse_declarative_ui_asset(
+            r#"<template><textarea rows="4" size="32" v-model="draft.body" /></template>"#,
+        )
+        .expect("textarea should parse");
+        let DeclarativeUiNode::Input {
+            input_type,
+            rows,
+            size_chars,
+            model_binding,
+            ..
+        } = asset.root
+        else {
+            panic!("expected input-like textarea node");
+        };
+        assert_eq!(input_type, InputType::Textarea);
+        assert_eq!(rows, Some(4));
+        assert_eq!(size_chars, Some(32));
+        assert_eq!(model_binding.as_deref(), Some("draft.body"));
     }
 }

@@ -73,6 +73,7 @@ pub enum DeclarativeUiNode {
         style_binding: Option<DeclarativeNodeStyleBinding>,
         placeholder: String,
         size_chars: Option<usize>,
+        rows: Option<usize>,
         min: Option<f32>,
         max: Option<f32>,
         step: Option<f32>,

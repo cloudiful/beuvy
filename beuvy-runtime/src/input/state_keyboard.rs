@@ -1,6 +1,6 @@
 use super::{
     can_insert_char, command_modifier_pressed, commit_numeric_field, control_pressed,
-    step_number_field, sync_display_change, word_modifier_pressed,
+    metrics::move_byte_vertically, step_number_field, sync_display_change, word_modifier_pressed,
 };
 use crate::input::{
     DisabledInput, InputField, InputValueChangedMessage, active_input_entity, key_is_submit,
@@ -20,6 +20,7 @@ pub(crate) fn handle_keyboard_input(
     mut keyboard_inputs: MessageReader<KeyboardInput>,
     fields_marker: Query<(), With<InputField>>,
     mut fields: Query<(Entity, &mut InputField, Has<DisabledInput>)>,
+    text_nodes: Query<&bevy::text::TextLayoutInfo, With<crate::input::InputText>>,
     input_focus: Res<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -91,20 +92,60 @@ pub(crate) fn handle_keyboard_input(
                 display_changed |= field.edit_state.move_end(extend_selection);
             }
             (Key::ArrowUp, _) => {
-                let edited = step_number_field(&mut field, 1.0);
-                pending_value_message |= edited;
-                display_changed |= edited;
+                if field.is_multiline() {
+                    if let Ok(layout) = text_nodes.get(field.text_entity) {
+                        let display_text = field.edit_state.display_text_string(&field.placeholder);
+                        if let Some((byte, preferred_x)) = move_byte_vertically(
+                            layout,
+                            &display_text.text,
+                            field.edit_state.display_caret_byte(),
+                            field.preferred_caret_x,
+                            -1,
+                        ) {
+                            field.edit_state.set_caret(byte, extend_selection);
+                            field.preferred_caret_x = Some(preferred_x);
+                            display_changed = true;
+                        }
+                    }
+                } else {
+                    let edited = step_number_field(&mut field, 1.0);
+                    pending_value_message |= edited;
+                    display_changed |= edited;
+                }
             }
             (Key::ArrowDown, _) => {
-                let edited = step_number_field(&mut field, -1.0);
-                pending_value_message |= edited;
-                display_changed |= edited;
+                if field.is_multiline() {
+                    if let Ok(layout) = text_nodes.get(field.text_entity) {
+                        let display_text = field.edit_state.display_text_string(&field.placeholder);
+                        if let Some((byte, preferred_x)) = move_byte_vertically(
+                            layout,
+                            &display_text.text,
+                            field.edit_state.display_caret_byte(),
+                            field.preferred_caret_x,
+                            1,
+                        ) {
+                            field.edit_state.set_caret(byte, extend_selection);
+                            field.preferred_caret_x = Some(preferred_x);
+                            display_changed = true;
+                        }
+                    }
+                } else {
+                    let edited = step_number_field(&mut field, -1.0);
+                    pending_value_message |= edited;
+                    display_changed |= edited;
+                }
             }
             (key, _) if key_is_submit(key) => {
-                let committed = commit_numeric_field(entity, &mut field, &mut value_changed);
-                display_changed |= committed;
-                if committed {
-                    pending_value_message = false;
+                if field.is_multiline() {
+                    let edited = field.edit_state.insert_text("\n");
+                    pending_value_message |= edited;
+                    display_changed |= edited;
+                } else {
+                    let committed = commit_numeric_field(entity, &mut field, &mut value_changed);
+                    display_changed |= committed;
+                    if committed {
+                        pending_value_message = false;
+                    }
                 }
             }
             (_, Some(inserted_text)) if !control_modifier && !command_modifier => {

@@ -2,6 +2,10 @@
     @apply flex items-center justify-start min-h-[38px] px-[10px] rounded-control border-[var(--border-regular)] border-panel-subtle-border bg-white overflow-x-clip focus:border-control-active-border focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
 }
 
+@utility textarea-root {
+    @apply flex items-start justify-start min-h-[72px] px-[10px] py-[10px] rounded-control border-[var(--border-regular)] border-panel-subtle-border bg-white overflow-x-clip overflow-y-clip focus:border-control-active-border focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
+}
+
 @utility input-range-root {
     @apply flex items-center justify-start min-h-[32px] overflow-visible;
 }

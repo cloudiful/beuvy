@@ -48,6 +48,8 @@ fn numeric_field_value_sync_accepts_text_value() {
                 range_fill: None,
                 range_thumb: None,
                 drag_start_value: 0.0,
+                caret_blink_resume_at: 0.0,
+                preferred_caret_x: None,
             },
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeRootViewModel(UiValue::object([(
@@ -93,6 +95,8 @@ fn value_binding_does_not_write_input_change_to_runtime_store() {
                 range_fill: None,
                 range_thumb: None,
                 drag_start_value: 0.0,
+                caret_blink_resume_at: 0.0,
+                preferred_caret_x: None,
             },
             DeclarativeValueBinding("settings.volume".to_string()),
         ))
@@ -138,6 +142,8 @@ fn v_model_writes_input_change_to_runtime_store() {
                 range_fill: None,
                 range_thumb: None,
                 drag_start_value: 0.0,
+                caret_blink_resume_at: 0.0,
+                preferred_caret_x: None,
             },
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeModelBinding,

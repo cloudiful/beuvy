@@ -79,9 +79,27 @@ fn setup(mut commands: Commands) {
                         ..default()
                     });
                     parent.spawn(AddInput {
+                        name: "multiline_note".to_string(),
+                        input_type: InputType::Textarea,
+                        value: "Textarea value for native multiline wrapping, caret movement,\nand segmented selection checks."
+                            .to_string(),
+                        placeholder: "Multiline note".to_string(),
+                        size_chars: Some(28),
+                        rows: Some(4),
+                        ..default()
+                    });
+                    parent.spawn(AddInput {
                         name: "ime_text".to_string(),
                         placeholder: "中文 IME input".to_string(),
                         size_chars: Some(20),
+                        ..default()
+                    });
+                    parent.spawn(AddInput {
+                        name: "ime_textarea".to_string(),
+                        input_type: InputType::Textarea,
+                        placeholder: "中文 IME textarea".to_string(),
+                        size_chars: Some(28),
+                        rows: Some(3),
                         ..default()
                     });
                     parent.spawn(AddInput {

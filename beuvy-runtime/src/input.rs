@@ -25,6 +25,7 @@ pub enum InputSet {
 pub enum InputType {
     #[default]
     Text,
+    Textarea,
     Number,
     Range,
 }
@@ -37,6 +38,7 @@ pub struct AddInput {
     pub value: String,
     pub placeholder: String,
     pub size_chars: Option<usize>,
+    pub rows: Option<usize>,
     pub min: Option<f32>,
     pub max: Option<f32>,
     pub step: Option<f32>,
@@ -53,6 +55,7 @@ impl Default for AddInput {
             value: String::new(),
             placeholder: String::new(),
             size_chars: None,
+            rows: None,
             min: None,
             max: None,
             step: None,
@@ -80,6 +83,7 @@ pub struct InputField {
     pub range_thumb: Option<Entity>,
     pub drag_start_value: f32,
     pub caret_blink_resume_at: f64,
+    pub preferred_caret_x: Option<f32>,
 }
 
 impl InputField {
@@ -93,6 +97,10 @@ impl InputField {
 
     pub fn numeric_value(&self) -> Option<f32> {
         value::parse_number_buffer(self.value())
+    }
+
+    pub fn is_multiline(&self) -> bool {
+        matches!(self.input_type, InputType::Textarea)
     }
 
     pub fn step_by(&mut self, direction: f32) -> Option<String> {
@@ -128,6 +136,9 @@ pub struct DisabledInput;
 pub struct InputSelection;
 
 #[derive(Component, Debug, Clone, Copy)]
+pub(crate) struct InputSelectionSegment;
+
+#[derive(Component, Debug, Clone, Copy)]
 pub struct InputCaret;
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -139,6 +150,7 @@ pub struct InputCursorPosition {
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub(crate) struct InputScrollOffset {
     pub x: f32,
+    pub y: f32,
 }
 
 #[derive(Component, Debug, Clone, Copy, Default)]

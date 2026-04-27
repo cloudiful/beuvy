@@ -37,6 +37,9 @@ fn sync_display_change(
     time: &Time,
 ) {
     keep_caret_visible(field, time);
+    if !field.is_multiline() {
+        field.preferred_caret_x = None;
+    }
     update_input_text(commands, font_resource, field, disabled);
 }
 
@@ -66,7 +69,7 @@ fn word_modifier_pressed(keys: &ButtonInput<KeyCode>) -> bool {
 
 fn can_insert_char(field: &InputField, chr: char) -> bool {
     match field.input_type {
-        InputType::Text => is_printable_char(chr),
+        InputType::Text | InputType::Textarea => is_printable_char(chr),
         InputType::Number => can_insert_number_char(chr, field.value(), field.min),
         InputType::Range => false,
     }

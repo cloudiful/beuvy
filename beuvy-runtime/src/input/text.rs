@@ -4,12 +4,28 @@ use crate::style::{
 };
 use crate::text::{AddText, FontResource, set_plain_text};
 use bevy::prelude::*;
+use bevy::text::{LineBreak, TextLayout};
 
 pub(crate) fn default_input_node(size_chars: Option<usize>) -> Node {
     let width = size_chars.map(input_width_for_chars).unwrap_or(96.0);
     Node {
         width: size_chars.map_or(Val::Auto, |chars| Val::Px(input_width_for_chars(chars))),
         min_width: Val::Px(width),
+        ..default()
+    }
+}
+
+pub(crate) fn default_textarea_node(size_chars: Option<usize>, rows: Option<usize>) -> Node {
+    let width = size_chars.map(input_width_for_chars).unwrap_or(180.0);
+    let rows = rows.unwrap_or(3).max(1) as f32;
+    let line_height = font_size_control() * 1.5;
+    let content_height = line_height * rows;
+    Node {
+        width: size_chars.map_or(Val::Auto, |chars| Val::Px(input_width_for_chars(chars))),
+        min_width: Val::Px(width),
+        min_height: Val::Px(content_height + 20.0),
+        height: Val::Px(content_height + 20.0),
+        align_items: AlignItems::Start,
         ..default()
     }
 }
@@ -47,6 +63,11 @@ pub(crate) fn input_text_bundle(add_input: &AddInput) -> AddText {
         text: preview,
         size: font_size_control(),
         color,
+        layout: if add_input.input_type == super::InputType::Textarea {
+            TextLayout::new_with_linebreak(LineBreak::WordBoundary)
+        } else {
+            TextLayout::new_with_no_wrap()
+        },
         ..default()
     }
 }
@@ -135,4 +156,36 @@ pub fn set_input_disabled(
 
 pub(crate) fn input_text_marker() -> InputText {
     InputText
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input::InputType;
+    use bevy::text::LineBreak;
+
+    #[test]
+    fn input_text_bundle_disables_soft_wrap() {
+        let add_input = AddInput {
+            value: "Long single-line value".to_string(),
+            ..Default::default()
+        };
+
+        let bundle = input_text_bundle(&add_input);
+
+        assert_eq!(bundle.layout.linebreak, LineBreak::NoWrap);
+    }
+
+    #[test]
+    fn textarea_text_bundle_enables_soft_wrap() {
+        let add_input = AddInput {
+            input_type: InputType::Textarea,
+            value: "Long multi-line value".to_string(),
+            ..Default::default()
+        };
+
+        let bundle = input_text_bundle(&add_input);
+
+        assert_eq!(bundle.layout.linebreak, LineBreak::WordBoundary);
+    }
 }

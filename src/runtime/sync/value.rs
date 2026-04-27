@@ -45,7 +45,7 @@ pub(crate) fn sync_declarative_field_values(
             &ref_rects,
         )
         .and_then(|value| match field.input_type {
-            InputType::Text => value.text().map(str::to_string),
+            InputType::Text | InputType::Textarea => value.text().map(str::to_string),
             InputType::Number | InputType::Range => value
                 .number()
                 .map(|value| value.to_string())

@@ -1,10 +1,13 @@
 use super::edit::TextEditState;
 use super::range::{spawn_range_fill, spawn_range_thumb, spawn_range_track};
-use super::text::{default_input_node, input_text_bundle, input_text_marker, input_text_node};
+use super::text::{
+    default_input_node, default_textarea_node, input_text_bundle, input_text_marker,
+    input_text_node,
+};
 use super::value::normalize_numeric_value;
 use super::{
     AddInput, DisabledInput, InputCaret, InputClickState, InputField, InputScrollOffset,
-    InputSelection, InputType,
+    InputSelection, InputSelectionSegment, InputType,
 };
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
@@ -17,6 +20,7 @@ use bevy::picking::Pickable;
 use bevy::prelude::*;
 
 const DEFAULT_INPUT_CLASS: &str = "input-root";
+const DEFAULT_TEXTAREA_CLASS: &str = "textarea-root";
 const DEFAULT_RANGE_CLASS: &str = "input-range-root";
 
 pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)>) {
@@ -24,6 +28,8 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
         let add_input = add_input.clone();
         let default_root_class = if add_input.input_type == InputType::Range {
             DEFAULT_RANGE_CLASS
+        } else if add_input.input_type == InputType::Textarea {
+            DEFAULT_TEXTAREA_CLASS
         } else {
             DEFAULT_INPUT_CLASS
         };
@@ -41,6 +47,8 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                 border: UiRect::ZERO,
                 ..default()
             }
+        } else if add_input.input_type == InputType::Textarea {
+            default_textarea_node(add_input.size_chars, add_input.rows)
         } else {
             default_input_node(add_input.size_chars)
         };
@@ -87,6 +95,7 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         range_thumb: None,
                         drag_start_value: 0.0,
                         caret_blink_resume_at: 0.0,
+                        preferred_caret_x: None,
                     },
                     InputClickState::default(),
                 ));
@@ -141,6 +150,22 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                 BackgroundColor(Color::srgba(0.23, 0.45, 0.96, 0.18)),
                             ))
                             .id();
+                        world.entity_mut(selection_entity).with_children(|parent| {
+                            for _ in 0..4 {
+                                parent.spawn((
+                                    InputSelectionSegment,
+                                    Pickable::IGNORE,
+                                    Visibility::Hidden,
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        width: Val::Px(0.0),
+                                        height: Val::Px(0.0),
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgba(0.23, 0.45, 0.96, 0.18)),
+                                ));
+                            }
+                        });
                         text_entity = world
                             .spawn((
                                 input_text_marker(),

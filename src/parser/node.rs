@@ -1,5 +1,6 @@
 use super::runtime_expr::expr_binding_path;
 use super::*;
+use crate::basic::input::parse_declarative_textarea_node;
 
 pub(super) fn parse_node(
     node: XmlNode<'_, '_>,
@@ -9,12 +10,12 @@ pub(super) fn parse_node(
     reject_legacy_bind_attrs(node)?;
     reject_hidden_attrs(node)?;
     let tag_name = node.tag_name().name();
-    if attr(node, "v-model").is_some() && !matches!(tag_name, "input" | "select") {
+    if attr(node, "v-model").is_some() && !matches!(tag_name, "input" | "textarea" | "select") {
         return Err(attr_error(
             node,
             "v-model",
             attr(node, "v-model").unwrap_or_default(),
-            "v-model is only supported on <input> and <select>",
+            "v-model is only supported on <input>, <textarea>, and <select>",
         ));
     }
     let parsed = match node.tag_name().name() {
@@ -54,6 +55,7 @@ pub(super) fn parse_node(
         }
         "button" => parse_declarative_button_node(node, state_specs),
         "input" => parse_declarative_input_node(node, state_specs),
+        "textarea" => parse_declarative_textarea_node(node, state_specs),
         "select" => parse_declarative_select_node(node, state_specs),
         "option" => Err(dsl_error(node, "<option> is only valid inside <select>")),
         "template" => Ok(DeclarativeUiNode::Template {

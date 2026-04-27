@@ -75,6 +75,7 @@ pub(super) fn add_text(
             Text::new(initial_text),
             text_font,
             add_text.line_height,
+            add_text.layout.clone(),
             TextColor(add_text.color),
         ));
 

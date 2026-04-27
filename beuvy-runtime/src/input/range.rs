@@ -342,6 +342,7 @@ mod tests {
             range_thumb: None,
             drag_start_value: 0.0,
             caret_blink_resume_at: 0.0,
+            preferred_caret_x: None,
         }
     }
 

@@ -3,7 +3,7 @@ mod sync;
 
 use crate::style::{font_size_control, text_primary_color};
 use bevy::prelude::*;
-use bevy::text::LineHeight;
+use bevy::text::{LineBreak, LineHeight, TextLayout};
 use bevy_localization::{Localization, TextKey};
 
 /// Materializes [`AddText`] components and keeps localized text in sync.
@@ -51,6 +51,7 @@ pub struct AddText {
     pub line_height: LineHeight,
     pub size: f32,
     pub color: Color,
+    pub layout: TextLayout,
     pub localized_text: Option<TextKey>,
     pub localized_text_format: Option<LocalizedTextFormat>,
 }
@@ -102,6 +103,7 @@ impl Default for AddText {
             line_height: LineHeight::RelativeToFont(1.5),
             size: font_size_control(),
             color: text_primary_color(),
+            layout: TextLayout::new_with_linebreak(LineBreak::WordBoundary),
             localized_text: None,
             localized_text_format: None,
         }

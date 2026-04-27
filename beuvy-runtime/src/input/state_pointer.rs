@@ -1,4 +1,4 @@
-use super::metrics::{node_logical_rect, text_byte_for_x};
+use super::metrics::{node_logical_rect, text_byte_for_point, text_byte_for_x};
 use super::{keep_caret_visible, shift_pressed};
 use crate::input::{
     DisabledInput, InputClickState, InputField, InputValueChangedMessage, clear_input_focus,
@@ -38,8 +38,13 @@ pub(crate) fn input_click(
 
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
+        let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
         let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let byte = text_byte_for_x(layout, &display_text.text, local_x);
+        let byte = if field.is_multiline() {
+            text_byte_for_point(layout, &display_text.text, local_x, local_y)
+        } else {
+            text_byte_for_x(layout, &display_text.text, local_x)
+        };
         match click_state.click_count {
             1 => field.edit_state.set_caret(byte, shift_pressed(&keys)),
             2 => {
@@ -68,9 +73,15 @@ pub(crate) fn input_drag_start(
     if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
+        let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
         let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let byte = text_byte_for_x(layout, &display_text.text, local_x);
+        let byte = if field.is_multiline() {
+            text_byte_for_point(layout, &display_text.text, local_x, local_y)
+        } else {
+            text_byte_for_x(layout, &display_text.text, local_x)
+        };
         field.edit_state.set_caret(byte, false);
+        field.preferred_caret_x = Some(local_x);
         keep_caret_visible(&mut field, &time);
     }
     event.propagate(false);
@@ -88,9 +99,15 @@ pub(crate) fn input_drag(
     if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
+        let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
         let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let byte = text_byte_for_x(layout, &display_text.text, local_x);
+        let byte = if field.is_multiline() {
+            text_byte_for_point(layout, &display_text.text, local_x, local_y)
+        } else {
+            text_byte_for_x(layout, &display_text.text, local_x)
+        };
         field.edit_state.set_caret(byte, true);
+        field.preferred_caret_x = Some(local_x);
         keep_caret_visible(&mut field, &time);
     }
     event.propagate(false);
