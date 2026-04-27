@@ -1,29 +1,49 @@
 #![doc = r#"
-`beuvy` is a declarative UI layer for Bevy.
+`beuvy` is the facade crate for the Beuvy UI stack.
 
-It parses reusable UI assets into typed Bevy runtime structures, then
-materializes those structures with the controls and style utilities provided by
-[`beuvy-runtime`].
+By default it exposes both layers:
 
-The main entry points are:
+- the reusable runtime controls and style system from [`beuvy-runtime`]
+- the optional declarative authoring layer that parses and materializes UI
+  assets on top of that runtime
 
-- [`DeclarativeUiPlugin`] to register asset loading and runtime systems.
-- [`parse_declarative_ui_asset`] to parse a declarative UI asset from text.
-- [`materialize_declarative_ui_shell_on_entity_in_world`] to attach a parsed UI
-  shell to an existing entity.
+Feature flags:
 
-Use `beuvy-runtime` directly when you only need controls, utility classes, and
-state-driven UI styling.
+- `runtime` (default): re-export the low-level Bevy UI kit from
+  [`beuvy-runtime`]
+- `declarative` (default): enable the parser, asset loader, bindings, and shell
+  materialization APIs
+- `vue`: current alias for the high-level declarative authoring layer; reserved
+  for future Vue-flavored surface expansion
 "#]
 
+#[cfg(feature = "runtime")]
+pub use beuvy_runtime::{
+    AddButton, AddInput, AddSelect, AddSelectOption, AddText, MouseWheelScroll, RuntimeStyleSource,
+    Select, SelectPanel, SelectValueChangedMessage, StyleSheetError, UiKitPlugin, UiStyleSheet,
+    button, compose_style_sheet, default_select_node, default_style_sheet, input,
+    interaction_style as state_style, parse_style_classes_with_sheet, parse_style_sheet,
+    parse_utility_classes, replace_runtime_style_source, runtime_style_sheet,
+    runtime_style_source, scroll, scroll_container_node, select, selected_option, stylesheet,
+    stylesheet_font_size_for_tag, sync_select_label, text, trigger_label_entity, utility,
+};
+
+#[cfg(feature = "declarative")]
 mod ast;
+#[cfg(feature = "declarative")]
 mod basic;
+#[cfg(feature = "declarative")]
 mod error;
+#[cfg(feature = "declarative")]
 mod parser;
+#[cfg(feature = "declarative")]
 mod runtime;
+#[cfg(feature = "declarative")]
 mod style;
+#[cfg(feature = "declarative")]
 mod value;
 
+#[cfg(feature = "declarative")]
 pub use ast::{
     DeclarativeAlignContent, DeclarativeAlignItems, DeclarativeAlignSelf, DeclarativeBorderRadius,
     DeclarativeClassBinding, DeclarativeComputedLocal, DeclarativeConditionExpr,
@@ -38,10 +58,13 @@ pub use ast::{
     DeclarativeUiTextContent, DeclarativeUiTextSegment, DeclarativeVal, DeclarativeValueExpr,
     DeclarativeVisualStyle,
 };
+#[cfg(feature = "declarative")]
 pub use error::DeclarativeUiAssetLoadError;
+#[cfg(feature = "declarative")]
 pub use parser::{
     DeclarativeActionSpec, parse_declarative_ui_asset, resolve_action_spec, set_action_resolver,
 };
+#[cfg(feature = "declarative")]
 pub use runtime::{
     DeclarativeAppliedTemplateHotReload, DeclarativeClassBindings,
     DeclarativeConditionalChainState, DeclarativeConditionalSubtree, DeclarativeDisabledExpr,
@@ -58,5 +81,7 @@ pub use runtime::{
     runtime_visual_styles, set_ref_resolver, spawn_declarative_ui_tree_collect_slots,
     spawn_declarative_ui_tree_collect_slots_in_world,
 };
+#[cfg(feature = "declarative")]
 pub use style::{BeuvyStyleSource, replace_style_source};
+#[cfg(feature = "declarative")]
 pub use value::UiValue;

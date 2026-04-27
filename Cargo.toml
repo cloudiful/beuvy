@@ -3,13 +3,13 @@ name = "beuvy"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-description = "A declarative Bevy UI layer backed by reusable runtime controls."
+description = "Facade crate for beuvy-runtime plus optional declarative UI authoring."
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://gitea.cloud1ful.com/games/beuvy"
 homepage = "https://gitea.cloud1ful.com/games/beuvy"
 documentation = "https://docs.rs/beuvy"
-keywords = ["bevy", "ui", "gamedev", "declarative"]
+keywords = ["bevy", "ui", "gamedev", "declarative", "runtime"]
 categories = ["game-development", "gui", "parser-implementations"]
 
 [workspace]
@@ -33,9 +33,22 @@ bevy-localization = { package = "cloudiful-bevy-localization", version = "0.1.2"
 roxmltree = "0.21.1"
 serde = { version = "1.0.228", features = ["derive"] }
 
+[features]
+default = ["runtime", "declarative"]
+runtime = ["dep:beuvy-runtime"]
+declarative = [
+    "runtime",
+    "dep:bevy",
+    "dep:bevy-localization",
+    "dep:roxmltree",
+    "dep:serde",
+]
+dsl = ["declarative"]
+vue = ["declarative"]
+
 [dependencies]
-bevy = { workspace = true }
-beuvy-runtime = { workspace = true }
-bevy-localization = { workspace = true }
-roxmltree = { workspace = true }
-serde = { workspace = true }
+bevy = { workspace = true, optional = true }
+beuvy-runtime = { workspace = true, optional = true }
+bevy-localization = { workspace = true, optional = true }
+roxmltree = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
