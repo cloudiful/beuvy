@@ -18,6 +18,12 @@ use bevy::prelude::*;
 use bevy::text::TextLayoutInfo;
 use bevy::window::{Ime, PrimaryWindow};
 
+const CARET_BLINK_RESUME_DELAY_SECS: f64 = 0.6;
+
+fn keep_caret_visible(field: &mut InputField, time: &Time) {
+    field.caret_blink_resume_at = time.elapsed_secs_f64() + CARET_BLINK_RESUME_DELAY_SECS;
+}
+
 pub(super) fn input_click(
     mut event: On<Pointer<Click>>,
     mut input_focus: ResMut<InputFocus>,
@@ -46,7 +52,8 @@ pub(super) fn input_click(
 
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
-        let byte = text_byte_for_x(layout, local_x);
+        let display_text = field.edit_state.display_text_string(&field.placeholder);
+        let byte = text_byte_for_x(layout, &display_text.text, local_x);
         match click_state.click_count {
             1 => field.edit_state.set_caret(byte, shift_pressed(&keys)),
             2 => {
@@ -56,6 +63,7 @@ pub(super) fn input_click(
                 field.edit_state.select_all();
             }
         }
+        keep_caret_visible(&mut field, &time);
     }
     event.propagate(false);
 }
@@ -63,6 +71,7 @@ pub(super) fn input_click(
 pub(super) fn input_drag_start(
     mut event: On<Pointer<DragStart>>,
     mut input_focus: ResMut<InputFocus>,
+    time: Res<Time>,
     mut fields: Query<&mut InputField, (With<InputField>, Without<DisabledInput>)>,
     text_nodes: Query<(&TextLayoutInfo, &ComputedNode, &UiGlobalTransform), With<super::InputText>>,
 ) {
@@ -73,14 +82,17 @@ pub(super) fn input_drag_start(
     if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
-        let byte = text_byte_for_x(layout, local_x);
+        let display_text = field.edit_state.display_text_string(&field.placeholder);
+        let byte = text_byte_for_x(layout, &display_text.text, local_x);
         field.edit_state.set_caret(byte, false);
+        keep_caret_visible(&mut field, &time);
     }
     event.propagate(false);
 }
 
 pub(super) fn input_drag(
     mut event: On<Pointer<Drag>>,
+    time: Res<Time>,
     mut fields: Query<&mut InputField, (With<InputField>, Without<DisabledInput>)>,
     text_nodes: Query<(&TextLayoutInfo, &ComputedNode, &UiGlobalTransform), With<super::InputText>>,
 ) {
@@ -90,8 +102,10 @@ pub(super) fn input_drag(
     if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
         let logical_rect = node_logical_rect(computed, transform);
         let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
-        let byte = text_byte_for_x(layout, local_x);
+        let display_text = field.edit_state.display_text_string(&field.placeholder);
+        let byte = text_byte_for_x(layout, &display_text.text, local_x);
         field.edit_state.set_caret(byte, true);
+        keep_caret_visible(&mut field, &time);
     }
     event.propagate(false);
 }
@@ -188,6 +202,7 @@ pub(super) fn handle_keyboard_input(
     mut fields: Query<(Entity, &mut InputField, Has<DisabledInput>)>,
     input_focus: Res<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
     font_resource: Res<FontResource>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
 ) {
@@ -288,6 +303,7 @@ pub(super) fn handle_keyboard_input(
     }
 
     if display_changed {
+        keep_caret_visible(&mut field, &time);
         update_input_text(&mut commands, &font_resource, &field, disabled);
     }
     if pending_value_message {
@@ -301,6 +317,7 @@ pub(super) fn handle_ime_input(
     fields_marker: Query<(), With<InputField>>,
     mut fields: Query<(Entity, &mut InputField, Has<DisabledInput>)>,
     input_focus: Res<InputFocus>,
+    time: Res<Time>,
     font_resource: Res<FontResource>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
 ) {
@@ -340,6 +357,7 @@ pub(super) fn handle_ime_input(
     }
 
     if display_changed {
+        keep_caret_visible(&mut field, &time);
         update_input_text(&mut commands, &font_resource, &field, disabled);
     }
     if changed {
@@ -399,6 +417,7 @@ pub(super) fn sync_input_edit_visuals(
         {
             continue;
         }
+        let display_text = field.edit_state.display_text_string(&field.placeholder);
         let Ok((layout, text_computed, text_transform)) = text_nodes.get(field.text_entity) else {
             continue;
         };
@@ -415,7 +434,8 @@ pub(super) fn sync_input_edit_visuals(
             - input_inset.min_inset.x
             - input_inset.max_inset.x)
             .max(0.0);
-        let raw_caret_x = text_x_for_byte(layout, field.edit_state.display_caret_byte());
+        let raw_caret_x =
+            text_x_for_byte(layout, &display_text.text, field.edit_state.display_caret_byte());
         if focused && !disabled {
             if let Ok((mut scroll_offset, mut text_node)) = visuals.p0().get_mut(field.text_entity)
             {
@@ -436,8 +456,8 @@ pub(super) fn sync_input_edit_visuals(
         if field.selection_entity != Entity::PLACEHOLDER {
             if let Ok((mut node, mut visibility)) = visuals.p1().get_mut(field.selection_entity) {
                 if let Some(range) = field.edit_state.selection_range() {
-                    let start_x = text_origin.x + text_x_for_byte(layout, range.start);
-                    let end_x = text_origin.x + text_x_for_byte(layout, range.end);
+                    let start_x = text_origin.x + text_x_for_byte(layout, &display_text.text, range.start);
+                    let end_x = text_origin.x + text_x_for_byte(layout, &display_text.text, range.end);
                     node.left = Val::Px(start_x);
                     node.top = Val::Px(caret_top);
                     node.width = Val::Px((end_x - start_x).max(0.0));
@@ -458,7 +478,8 @@ pub(super) fn sync_input_edit_visuals(
                 node.left = Val::Px((caret_x - caret_width * 0.5).max(0.0));
                 node.top = Val::Px(caret_top);
                 node.height = Val::Px(text_height.max(0.0));
-                let blink_visible = (time.elapsed_secs_f64() * 2.0).floor() as i64 % 2 == 0;
+                let blink_visible = time.elapsed_secs_f64() < field.caret_blink_resume_at
+                    || (time.elapsed_secs_f64() * 2.0).floor() as i64 % 2 == 0;
                 *visibility = if focused && !disabled && blink_visible {
                     Visibility::Visible
                 } else {
@@ -492,7 +513,7 @@ fn node_logical_rect(computed: &ComputedNode, transform: &UiGlobalTransform) -> 
     }
 }
 
-fn text_x_for_byte(layout: &TextLayoutInfo, byte: usize) -> f32 {
+fn text_x_for_byte(layout: &TextLayoutInfo, text: &str, byte: usize) -> f32 {
     if byte == 0 || layout.glyphs.is_empty() {
         return 0.0;
     }
@@ -510,7 +531,7 @@ fn text_x_for_byte(layout: &TextLayoutInfo, byte: usize) -> f32 {
         if byte <= glyph.byte_index {
             return glyph_x;
         }
-        current_x = glyph_trailing_x(&layout.glyphs, index, glyph_scale);
+        current_x = glyph_trailing_x(layout, text, index, glyph_scale);
         if byte <= glyph.byte_index + glyph.byte_length {
             return current_x;
         }
@@ -519,7 +540,7 @@ fn text_x_for_byte(layout: &TextLayoutInfo, byte: usize) -> f32 {
     current_x
 }
 
-fn text_byte_for_x(layout: &TextLayoutInfo, x: f32) -> usize {
+fn text_byte_for_x(layout: &TextLayoutInfo, text: &str, x: f32) -> usize {
     if layout.glyphs.is_empty() {
         return 0;
     }
@@ -530,7 +551,7 @@ fn text_byte_for_x(layout: &TextLayoutInfo, x: f32) -> usize {
 
     for (index, glyph) in layout.glyphs.iter().enumerate() {
         let start = glyph_left_x(glyph, glyph_scale);
-        let end = glyph_trailing_x(&layout.glyphs, index, glyph_scale);
+        let end = glyph_trailing_x(layout, text, index, glyph_scale);
         let width = end - start;
         let midpoint = start + width * 0.5;
         if x < midpoint {
@@ -556,7 +577,8 @@ fn glyph_right_x(glyph: &bevy::text::PositionedGlyph, scale: f32) -> f32 {
     (glyph.position.x + glyph.size.x * 0.5) / scale
 }
 
-fn glyph_trailing_x(glyphs: &[bevy::text::PositionedGlyph], index: usize, scale: f32) -> f32 {
+fn glyph_trailing_x(layout: &TextLayoutInfo, text: &str, index: usize, scale: f32) -> f32 {
+    let glyphs = &layout.glyphs;
     let glyph = &glyphs[index];
     let next_index = index + 1;
     if let Some(next) = glyphs.get(next_index)
@@ -566,7 +588,43 @@ fn glyph_trailing_x(glyphs: &[bevy::text::PositionedGlyph], index: usize, scale:
         return glyph_left_x(next, scale);
     }
 
+    if glyph_text(text, glyph).chars().all(char::is_whitespace) {
+        if let Some(previous) = previous_contiguous_glyph(glyphs, index, glyph) {
+            let previous_left = glyph_left_x(previous, scale);
+            let current_left = glyph_left_x(glyph, scale);
+            let inferred_advance = (current_left - previous_left).max(0.0);
+            return current_left + inferred_advance;
+        }
+        return layout_right_edge(layout).max(glyph_right_x(glyph, scale));
+    }
+
     glyph_right_x(glyph, scale)
+}
+
+fn layout_right_edge(layout: &TextLayoutInfo) -> f32 {
+    let run_max_x = layout
+        .run_geometry
+        .iter()
+        .map(|run| run.bounds.max.x)
+        .fold(0.0, f32::max);
+    layout.size.x.max(run_max_x)
+}
+
+fn glyph_text<'a>(text: &'a str, glyph: &bevy::text::PositionedGlyph) -> &'a str {
+    text.get(glyph.byte_index..glyph.byte_index + glyph.byte_length)
+        .unwrap_or("")
+}
+
+fn previous_contiguous_glyph<'a>(
+    glyphs: &'a [bevy::text::PositionedGlyph],
+    index: usize,
+    glyph: &bevy::text::PositionedGlyph,
+) -> Option<&'a bevy::text::PositionedGlyph> {
+    let previous_index = index.checked_sub(1)?;
+    let previous = glyphs.get(previous_index)?;
+    (previous.line_index == glyph.line_index
+        && previous.byte_index + previous.byte_length == glyph.byte_index)
+        .then_some(previous)
 }
 
 fn shift_pressed(keys: &ButtonInput<KeyCode>) -> bool {
@@ -636,32 +694,59 @@ mod tests {
     #[test]
     fn text_x_for_byte_uses_glyph_edges_not_centers() {
         let layout = layout_with_glyphs(&[(0, 1, 15.0, 10.0), (1, 1, 25.0, 10.0)]);
+        let text = "ab";
 
-        assert_eq!(text_x_for_byte(&layout, 0), 0.0);
-        assert_eq!(text_x_for_byte(&layout, 1), 20.0);
-        assert_eq!(text_x_for_byte(&layout, 2), 30.0);
+        assert_eq!(text_x_for_byte(&layout, text, 0), 0.0);
+        assert_eq!(text_x_for_byte(&layout, text, 1), 20.0);
+        assert_eq!(text_x_for_byte(&layout, text, 2), 30.0);
     }
 
     #[test]
     fn text_byte_for_x_uses_glyph_edge_midpoints() {
         let layout = layout_with_glyphs(&[(0, 1, 15.0, 10.0), (1, 1, 25.0, 10.0)]);
+        let text = "ab";
 
-        assert_eq!(text_byte_for_x(&layout, 9.9), 0);
-        assert_eq!(text_byte_for_x(&layout, 15.0), 1);
-        assert_eq!(text_byte_for_x(&layout, 24.9), 1);
-        assert_eq!(text_byte_for_x(&layout, 25.0), 2);
+        assert_eq!(text_byte_for_x(&layout, text, 9.9), 0);
+        assert_eq!(text_byte_for_x(&layout, text, 15.0), 1);
+        assert_eq!(text_byte_for_x(&layout, text, 24.9), 1);
+        assert_eq!(text_byte_for_x(&layout, text, 25.0), 2);
     }
 
     #[test]
     fn text_positions_use_next_glyph_edge_after_narrow_space_glyph() {
         let layout = layout_with_glyphs(&[(0, 1, 1.0, 2.0), (1, 1, 15.0, 10.0)]);
+        let text = " a";
 
-        assert_eq!(text_x_for_byte(&layout, 0), 0.0);
-        assert_eq!(text_x_for_byte(&layout, 1), 10.0);
-        assert_eq!(text_x_for_byte(&layout, 2), 20.0);
-        assert_eq!(text_byte_for_x(&layout, 4.9), 0);
-        assert_eq!(text_byte_for_x(&layout, 5.0), 1);
-        assert_eq!(text_byte_for_x(&layout, 15.0), 2);
+        assert_eq!(text_x_for_byte(&layout, text, 0), 0.0);
+        assert_eq!(text_x_for_byte(&layout, text, 1), 10.0);
+        assert_eq!(text_x_for_byte(&layout, text, 2), 20.0);
+        assert_eq!(text_byte_for_x(&layout, text, 4.9), 0);
+        assert_eq!(text_byte_for_x(&layout, text, 5.0), 1);
+        assert_eq!(text_byte_for_x(&layout, text, 15.0), 2);
+    }
+
+    #[test]
+    fn text_positions_use_layout_edge_for_trailing_narrow_space_glyph() {
+        let mut layout = layout_with_glyphs(&[(0, 1, 1.0, 2.0)]);
+        layout.size.x = 10.0;
+        let text = " ";
+
+        assert_eq!(text_x_for_byte(&layout, text, 0), 0.0);
+        assert_eq!(text_x_for_byte(&layout, text, 1), 10.0);
+        assert_eq!(text_byte_for_x(&layout, text, 4.9), 0);
+        assert_eq!(text_byte_for_x(&layout, text, 5.0), 1);
+    }
+
+    #[test]
+    fn trailing_space_after_regular_glyph_uses_neighbor_advance_not_layout_width() {
+        let mut layout = layout_with_glyphs(&[(0, 1, 5.0, 10.0), (1, 1, 11.0, 2.0)]);
+        layout.size.x = 80.0;
+        let text = "a ";
+
+        assert_eq!(text_x_for_byte(&layout, text, 1), 10.0);
+        assert_eq!(text_x_for_byte(&layout, text, 2), 20.0);
+        assert_eq!(text_byte_for_x(&layout, text, 14.9), 1);
+        assert_eq!(text_byte_for_x(&layout, text, 15.0), 2);
     }
 
     fn layout_with_glyphs(glyphs: &[(usize, usize, f32, f32)]) -> TextLayoutInfo {

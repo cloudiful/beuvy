@@ -86,6 +86,7 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         range_fill: None,
                         range_thumb: None,
                         drag_start_value: 0.0,
+                        caret_blink_resume_at: 0.0,
                     },
                     InputClickState::default(),
                 ));

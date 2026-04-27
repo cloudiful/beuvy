@@ -79,6 +79,7 @@ pub struct InputField {
     pub range_fill: Option<Entity>,
     pub range_thumb: Option<Entity>,
     pub drag_start_value: f32,
+    pub caret_blink_resume_at: f64,
 }
 
 impl InputField {
