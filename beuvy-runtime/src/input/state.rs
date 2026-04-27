@@ -498,13 +498,19 @@ fn text_x_for_byte(layout: &TextLayoutInfo, byte: usize) -> f32 {
     }
     let glyph_scale = layout.scale_factor.max(f32::EPSILON);
 
-    let mut current_x = 0.0;
     for glyph in &layout.glyphs {
+        if byte == glyph.byte_index {
+            return glyph_left_x(glyph, glyph_scale);
+        }
+    }
+
+    let mut current_x = 0.0;
+    for (index, glyph) in layout.glyphs.iter().enumerate() {
         let glyph_x = glyph_left_x(glyph, glyph_scale);
         if byte <= glyph.byte_index {
             return glyph_x;
         }
-        current_x = glyph_right_x(glyph, glyph_scale);
+        current_x = glyph_trailing_x(&layout.glyphs, index, glyph_scale);
         if byte <= glyph.byte_index + glyph.byte_length {
             return current_x;
         }
@@ -522,9 +528,9 @@ fn text_byte_for_x(layout: &TextLayoutInfo, x: f32) -> usize {
     }
     let glyph_scale = layout.scale_factor.max(f32::EPSILON);
 
-    for glyph in &layout.glyphs {
+    for (index, glyph) in layout.glyphs.iter().enumerate() {
         let start = glyph_left_x(glyph, glyph_scale);
-        let end = glyph_right_x(glyph, glyph_scale);
+        let end = glyph_trailing_x(&layout.glyphs, index, glyph_scale);
         let width = end - start;
         let midpoint = start + width * 0.5;
         if x < midpoint {
@@ -548,6 +554,19 @@ fn glyph_left_x(glyph: &bevy::text::PositionedGlyph, scale: f32) -> f32 {
 
 fn glyph_right_x(glyph: &bevy::text::PositionedGlyph, scale: f32) -> f32 {
     (glyph.position.x + glyph.size.x * 0.5) / scale
+}
+
+fn glyph_trailing_x(glyphs: &[bevy::text::PositionedGlyph], index: usize, scale: f32) -> f32 {
+    let glyph = &glyphs[index];
+    let next_index = index + 1;
+    if let Some(next) = glyphs.get(next_index)
+        && next.line_index == glyph.line_index
+        && next.byte_index == glyph.byte_index + glyph.byte_length
+    {
+        return glyph_left_x(next, scale);
+    }
+
+    glyph_right_x(glyph, scale)
 }
 
 fn shift_pressed(keys: &ButtonInput<KeyCode>) -> bool {
@@ -631,6 +650,18 @@ mod tests {
         assert_eq!(text_byte_for_x(&layout, 15.0), 1);
         assert_eq!(text_byte_for_x(&layout, 24.9), 1);
         assert_eq!(text_byte_for_x(&layout, 25.0), 2);
+    }
+
+    #[test]
+    fn text_positions_use_next_glyph_edge_after_narrow_space_glyph() {
+        let layout = layout_with_glyphs(&[(0, 1, 1.0, 2.0), (1, 1, 15.0, 10.0)]);
+
+        assert_eq!(text_x_for_byte(&layout, 0), 0.0);
+        assert_eq!(text_x_for_byte(&layout, 1), 10.0);
+        assert_eq!(text_x_for_byte(&layout, 2), 20.0);
+        assert_eq!(text_byte_for_x(&layout, 4.9), 0);
+        assert_eq!(text_byte_for_x(&layout, 5.0), 1);
+        assert_eq!(text_byte_for_x(&layout, 15.0), 2);
     }
 
     fn layout_with_glyphs(glyphs: &[(usize, usize, f32, f32)]) -> TextLayoutInfo {
