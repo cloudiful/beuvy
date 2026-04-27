@@ -11,6 +11,7 @@ use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::math::Rect;
 use bevy::window::{Ime, PrimaryWindow};
 
 pub(super) fn input_click(
@@ -47,7 +48,7 @@ pub(super) fn clear_input_focus_on_foreign_click(
 pub(super) fn sync_input_focus_visuals(
     mut commands: Commands,
     input_focus: Res<InputFocus>,
-    fields: Query<(Entity, Option<&GlobalTransform>, Option<&ComputedNode>), With<InputField>>,
+    fields: Query<(Entity, Option<&UiGlobalTransform>, Option<&ComputedNode>), With<InputField>>,
     added_fields: Query<(), Added<InputField>>,
     focused: Query<Entity, With<UiFocused>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -73,10 +74,14 @@ pub(super) fn sync_input_focus_visuals(
         if should_focus {
             entity_commands.try_insert(UiFocused);
             if let (Some(transform), Some(computed)) = (transform, computed) {
-                let translation = transform.translation();
+                let (_, _, center) = transform.to_scale_angle_translation();
+                let rect = Rect::from_center_size(center, computed.size());
+                let inverse = computed.inverse_scale_factor();
+                let content_inset = computed.content_inset();
+                let content_left = rect.min.x + content_inset.min_inset.x;
                 entity_commands.try_insert(InputCursorPosition {
-                    x: translation.x,
-                    y: translation.y + computed.size().y * 0.5,
+                    x: content_left * inverse,
+                    y: rect.center().y * inverse,
                 });
             }
         } else {

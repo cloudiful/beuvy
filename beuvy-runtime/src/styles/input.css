@@ -1,5 +1,5 @@
 @utility input-root {
-    @apply flex items-start justify-center min-h-[38px] px-[10px] rounded-control border-[var(--border-regular)] border-panel-subtle-border bg-panel-subtle-bg overflow-x-clip focus:border-control-active-border focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
+    @apply flex items-center justify-start min-h-[38px] px-[10px] rounded-control border-[var(--border-regular)] border-panel-subtle-border bg-white overflow-x-clip focus:border-control-active-border focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
 }
 
 @utility input-text {

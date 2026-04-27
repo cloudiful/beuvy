@@ -55,6 +55,9 @@ pub struct SelectPanel;
 pub(crate) struct SelectOptionIndicator;
 
 #[derive(Component, Debug, Clone)]
+pub(crate) struct SelectChevron;
+
+#[derive(Component, Debug, Clone)]
 pub(crate) struct SelectChevronGlyph;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

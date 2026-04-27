@@ -5,7 +5,9 @@ use super::{AddInput, DisabledInput, InputField, InputType};
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
-use crate::style::{apply_utility_patch, resolve_classes_with_fallback};
+use crate::style::{
+    apply_utility_patch, resolve_classes_with_fallback, root_visual_styles_from_patch,
+};
 use crate::text::AddText;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
@@ -20,6 +22,7 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
             add_input.class.as_deref(),
             "input root",
         );
+        let root_styles = root_visual_styles_from_patch(&root_patch);
         let mut root_node = if add_input.input_type == InputType::Range {
             Node {
                 min_width: Val::Px(120.0),
@@ -73,6 +76,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         drag_start_value: 0.0,
                     },
                 ));
+                if let Some(styles) = root_styles.clone() {
+                    entity_commands.insert(styles);
+                }
 
                 if add_input.input_type == InputType::Range {
                     entity_commands.world_scope(|world| {

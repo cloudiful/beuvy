@@ -12,8 +12,9 @@ use crate::form_item::FormItemSet;
 use bevy::prelude::*;
 use build::add_select;
 use systems::{
-    close_selects_on_foreign_click, sync_select_button_layouts, sync_select_option_indicators,
-    sync_select_panel_placement, sync_select_semantics, sync_select_visual_state,
+    close_selects_on_foreign_click, sync_select_accessory_layout, sync_select_button_layouts,
+    sync_select_option_indicators, sync_select_panel_placement, sync_select_semantics,
+    sync_select_visual_state,
 };
 
 pub struct SelectPlugin;
@@ -31,6 +32,7 @@ impl Plugin for SelectPlugin {
                     sync_select_semantics,
                     sync_select_panel_placement,
                     sync_select_button_layouts,
+                    sync_select_accessory_layout,
                     sync_select_option_indicators,
                 )
                     .after(ButtonSet::Build),

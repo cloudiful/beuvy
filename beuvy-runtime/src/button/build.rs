@@ -9,6 +9,7 @@ use crate::style::{
     text_primary_color, text_visual_styles_from_patch,
 };
 use crate::text::AddText;
+use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::text::TextLayout;
 
@@ -64,6 +65,7 @@ pub(super) fn add_button(mut commands: Commands, query: Query<(Entity, &AddButto
                 let child = entity.world_scope(|world| {
                     let mut child = world.spawn((
                         ButtonInner,
+                        Pickable::IGNORE,
                         Node::default(),
                         TextLayout::new_with_no_wrap(),
                         build_button_text(&add_button, &label_patch),

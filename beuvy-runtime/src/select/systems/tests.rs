@@ -1,8 +1,7 @@
 use super::*;
 use crate::select::model::{Select, SelectPanel, SelectTrigger};
-use crate::select::systems::placement::SELECT_PANEL_GAP;
 use bevy::prelude::*;
-use bevy::ui::Val::{Auto, Percent, Px};
+use bevy::ui::Val::{Auto, Px};
 use bevy::window::PrimaryWindow;
 
 fn computed_node(width: f32, height: f32) -> ComputedNode {
@@ -74,9 +73,11 @@ fn select_panel_flips_above_when_bottom_space_is_tight() {
     app.update();
 
     let node = app.world().entity(panel).get::<Node>().expect("panel node");
-    assert_eq!(node.top, Auto);
-    assert_eq!(node.bottom, Percent(100.0));
-    assert_eq!(node.margin.bottom, Px(SELECT_PANEL_GAP));
+    assert_eq!(node.left, Px(70.0));
+    assert_eq!(node.top, Px(138.0));
+    assert_eq!(node.bottom, Auto);
+    assert_eq!(node.min_width, Px(160.0));
+    assert_eq!(node.margin.bottom, Px(0.0));
     assert_eq!(node.max_height, Px(258.0));
 }
 
@@ -89,9 +90,11 @@ fn select_panel_opens_below_when_bottom_space_is_available() {
     app.update();
 
     let node = app.world().entity(panel).get::<Node>().expect("panel node");
-    assert_eq!(node.top, Percent(100.0));
+    assert_eq!(node.left, Px(70.0));
+    assert_eq!(node.top, Px(172.0));
     assert_eq!(node.bottom, Auto);
-    assert_eq!(node.margin.top, Px(SELECT_PANEL_GAP));
+    assert_eq!(node.min_width, Px(160.0));
+    assert_eq!(node.margin.top, Px(0.0));
     assert_eq!(node.max_height, Px(128.0));
 }
 
@@ -113,7 +116,7 @@ fn select_panel_uses_window_space_without_clip_ancestor() {
         .spawn((
             SelectTrigger { select },
             computed_node(160.0, 32.0),
-            UiGlobalTransform::from_translation(Vec2::new(0.0, 0.0)),
+            UiGlobalTransform::from_translation(Vec2::new(400.0, 100.0)),
         ))
         .id();
     let panel = app
@@ -146,8 +149,10 @@ fn select_panel_uses_window_space_without_clip_ancestor() {
     app.update();
 
     let node = app.world().entity(panel).get::<Node>().expect("panel node");
-    assert_eq!(node.top, Percent(100.0));
+    assert_eq!(node.left, Px(320.0));
+    assert_eq!(node.top, Px(122.0));
     assert_eq!(node.bottom, Auto);
-    assert_eq!(node.margin.top, Px(SELECT_PANEL_GAP));
+    assert_eq!(node.min_width, Px(160.0));
+    assert_eq!(node.margin.top, Px(0.0));
     assert!(matches!(node.max_height, Px(value) if value > 48.0));
 }

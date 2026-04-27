@@ -1,8 +1,10 @@
-use crate::button::{ActiveButton, Button, ButtonLabel, DisabledButton, sync_button_active_state};
+use crate::button::{
+    ActiveButton, Button, ButtonInner, ButtonLabel, DisabledButton, sync_button_active_state,
+};
 use crate::interaction_style::UiDisabled;
 use crate::select::model::{
-    Select, SelectOptionButton, SelectOptionIndicator, SelectPanel, SelectTrigger, selected_option,
-    sync_select_label, trigger_label_entity,
+    Select, SelectChevron, SelectOptionButton, SelectOptionIndicator, SelectPanel, SelectTrigger,
+    selected_option, sync_select_label, trigger_label_entity,
 };
 use bevy::prelude::*;
 use bevy::ui::Val::{Percent, Px};
@@ -137,11 +139,8 @@ pub(crate) fn sync_select_button_layouts(
         node.align_items = AlignItems::Center;
         node.position_type = PositionType::Relative;
         node.overflow = Overflow::clip_x();
-        node.padding.right = if trigger.is_some() {
-            Px(44.0)
-        } else {
-            Px(40.0)
-        };
+        node.column_gap = Px(10.0);
+        node.padding.right = Px(12.0);
     }
 }
 
@@ -183,5 +182,37 @@ pub(crate) fn sync_select_option_indicators(
                 Visibility::Hidden
             };
         }
+    }
+}
+
+pub(crate) fn sync_select_accessory_layout(
+    select_buttons: Query<
+        (&ButtonLabel, Option<&SelectTrigger>, Option<&SelectOptionButton>),
+        With<Button>,
+    >,
+    mut nodes: ParamSet<(
+        Query<&mut Node, With<ButtonInner>>,
+        Query<&mut Node, Or<(With<SelectChevron>, With<SelectOptionIndicator>)>>,
+    )>,
+) {
+    for (label, trigger, option) in &select_buttons {
+        if trigger.is_none() && option.is_none() {
+            continue;
+        }
+
+        if let Ok(mut label_node) = nodes.p0().get_mut(label.entity) {
+            label_node.flex_grow = 1.0;
+            label_node.flex_shrink = 1.0;
+            label_node.min_width = Px(0.0);
+        }
+    }
+
+    for mut node in &mut nodes.p1() {
+        node.position_type = PositionType::Relative;
+        node.left = Val::Auto;
+        node.right = Val::Auto;
+        node.top = Val::Auto;
+        node.bottom = Val::Auto;
+        node.margin.left = Val::Auto;
     }
 }

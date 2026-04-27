@@ -1,5 +1,5 @@
 use super::model::{
-    AddSelect, AddSelectOption, SELECT_CHEVRON_CLOSED, Select, SelectChevronGlyph,
+    AddSelect, AddSelectOption, SELECT_CHEVRON_CLOSED, Select, SelectChevron, SelectChevronGlyph,
     SelectOptionButton, SelectOptionIndicator, SelectOptionState, SelectPanel, SelectTrigger,
 };
 use super::systems::{select_option_click, select_trigger_click};
@@ -25,7 +25,10 @@ const DEFAULT_SELECT_OPTION_CLASS: &str = "select-option";
 const DEFAULT_SELECT_INDICATOR_CLASS: &str = "select-indicator";
 const DEFAULT_SELECT_INDICATOR_LABEL_CLASS: &str = "select-indicator-label";
 
-pub(crate) fn add_select(mut commands: Commands, query: Query<(Entity, &AddSelect)>) {
+pub(crate) fn add_select(
+    mut commands: Commands,
+    query: Query<(Entity, &AddSelect)>,
+) {
     for (entity, add_select) in query {
         let add_select = add_select.clone();
         let root_patch = resolve_classes_with_fallback(
@@ -45,7 +48,7 @@ pub(crate) fn add_select(mut commands: Commands, query: Query<(Entity, &AddSelec
                 let chevron_glyph = spawn_select_chevron_glyph(&mut entity_commands, &add_select);
                 let panel = spawn_select_panel(&mut entity_commands, &add_select);
 
-                entity_commands.add_children(&[trigger, panel]);
+                entity_commands.add_child(trigger);
                 entity_commands.world_scope(|world| {
                     world.entity_mut(trigger).add_child(chevron);
                 });
@@ -138,6 +141,7 @@ fn spawn_select_chevron(entity_commands: &mut EntityWorldMut, add_select: &AddSe
         let mut node = Node::default();
         apply_utility_patch(&mut node, &patch);
         let mut entity = world.spawn((
+            SelectChevron,
             Pickable::IGNORE,
             Visibility::Visible,
             node,
@@ -193,6 +197,7 @@ fn spawn_select_panel(entity_commands: &mut EntityWorldMut, add_select: &AddSele
         let mut node = Node::default();
         apply_utility_patch(&mut node, &patch);
         node.display = Display::None;
+        node.position_type = PositionType::Absolute;
         node.scrollbar_width = scrollbar_width();
         let mut entity = world.spawn((
             SelectPanel,
@@ -255,6 +260,12 @@ fn spawn_select_option(
             DEFAULT_SELECT_INDICATOR_LABEL_CLASS,
             "select indicator label",
         );
+        let indicator_dot_color = indicator_label_patch
+            .visual
+            .text_color
+            .as_deref()
+            .and_then(crate::style::resolve_color_value)
+            .unwrap_or_else(text_primary_color);
         let styles = root_visual_styles_from_patch(&patch);
         let mut node = Node::default();
         apply_utility_patch(&mut node, &patch);
@@ -264,26 +275,25 @@ fn spawn_select_option(
             Visibility::Hidden,
             node,
             BackgroundColor(Color::NONE),
-            TextLayout::new_with_justify(Justify::Center),
-            AddText {
-                text: "•".to_string(),
-                size: indicator_label_patch
-                    .text_size
-                    .unwrap_or_else(crate::style::font_size_control),
-                line_height: LineHeight::RelativeToFont(1.0),
-                color: indicator_label_patch
-                    .visual
-                    .text_color
-                    .as_deref()
-                    .and_then(crate::style::resolve_color_value)
-                    .unwrap_or_else(text_primary_color),
-                ..default()
-            },
         ));
         if let Some(styles) = styles {
             entity.insert(styles);
         }
-        entity.id()
+        let indicator = entity.id();
+        let dot = world
+            .spawn((
+                Pickable::IGNORE,
+                Node {
+                    width: Val::Px(8.0),
+                    height: Val::Px(8.0),
+                    border_radius: BorderRadius::MAX,
+                    ..default()
+                },
+                BackgroundColor(indicator_dot_color),
+            ))
+            .id();
+        world.entity_mut(indicator).add_child(dot);
+        indicator
     });
 
     root.world_scope(|world| {
