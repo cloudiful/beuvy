@@ -3,6 +3,7 @@ use crate::select::model::{Select, SelectPanel, SelectTrigger};
 use crate::select::systems::placement::SELECT_PANEL_GAP;
 use bevy::prelude::*;
 use bevy::ui::Val::{Auto, Percent, Px};
+use bevy::window::PrimaryWindow;
 
 fn computed_node(width: f32, height: f32) -> ComputedNode {
     ComputedNode {
@@ -92,4 +93,61 @@ fn select_panel_opens_below_when_bottom_space_is_available() {
     assert_eq!(node.bottom, Auto);
     assert_eq!(node.margin.top, Px(SELECT_PANEL_GAP));
     assert_eq!(node.max_height, Px(128.0));
+}
+
+#[test]
+fn select_panel_uses_window_space_without_clip_ancestor() {
+    let mut app = App::new();
+    app.world_mut().spawn((
+        PrimaryWindow,
+        Window {
+            resolution: (800, 600).into(),
+            ..default()
+        },
+    ));
+    app.add_systems(Update, sync_select_panel_placement);
+
+    let select = app.world_mut().spawn_empty().id();
+    let trigger = app
+        .world_mut()
+        .spawn((
+            SelectTrigger { select },
+            computed_node(160.0, 32.0),
+            UiGlobalTransform::from_translation(Vec2::new(0.0, 0.0)),
+        ))
+        .id();
+    let panel = app
+        .world_mut()
+        .spawn((
+            SelectPanel,
+            Node {
+                display: Display::Flex,
+                max_height: Px(360.0),
+                ..default()
+            },
+            computed_node(160.0, 120.0),
+        ))
+        .id();
+
+    app.world_mut()
+        .entity_mut(select)
+        .add_children(&[trigger, panel]);
+    app.world_mut().entity_mut(select).insert(Select {
+        name: "select".to_string(),
+        value: "a".to_string(),
+        options: Vec::new(),
+        panel,
+        trigger,
+        chevron_glyph: Entity::PLACEHOLDER,
+        open: true,
+        disabled: false,
+    });
+
+    app.update();
+
+    let node = app.world().entity(panel).get::<Node>().expect("panel node");
+    assert_eq!(node.top, Percent(100.0));
+    assert_eq!(node.bottom, Auto);
+    assert_eq!(node.margin.top, Px(SELECT_PANEL_GAP));
+    assert!(matches!(node.max_height, Px(value) if value > 48.0));
 }

@@ -27,7 +27,21 @@ impl Plugin for TextPlugin {
 
 #[derive(Resource)]
 pub struct FontResource {
-    pub primary_font: Handle<Font>,
+    pub primary_font: Option<Handle<Font>>,
+}
+
+impl FontResource {
+    pub fn from_handle(font: Handle<Font>) -> Self {
+        Self {
+            primary_font: Some(font),
+        }
+    }
+}
+
+impl Default for FontResource {
+    fn default() -> Self {
+        Self { primary_font: None }
+    }
 }
 
 /// Declarative request to materialize a text entity using the active UI theme.

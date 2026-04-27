@@ -84,7 +84,28 @@ println!("{patch:?}");
 token semantics and DSL-driven styling belong in `beuvy` or the application
 layer.
 
+## Fonts
+
+`beuvy-runtime` does not require a crate-managed font asset. By default it
+leaves the `TextFont.font` handle unset and relies on Bevy's built-in default
+font.
+
+If your app wants a custom font, insert a `FontResource` yourself:
+
+```rust
+use bevy::prelude::*;
+use beuvy_runtime::text::FontResource;
+
+fn setup_font(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(FontResource::from_handle(
+        asset_server.load("fonts/YourFont.ttf"),
+    ));
+}
+```
+
 ## Examples
 
 - `cargo run -p beuvy-runtime --example basic_controls`
+- `cargo run -p beuvy-runtime --example button_states`
+- `cargo run -p beuvy-runtime --example control_events`
 - `cargo run -p beuvy-runtime --example utility_classes`

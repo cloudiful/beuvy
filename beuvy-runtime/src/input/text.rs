@@ -89,12 +89,14 @@ pub(crate) fn update_input_text(
     } else {
         input_display_text(field).1
     };
+    let text_font = font_resource
+        .primary_font
+        .clone()
+        .map(TextFont::from)
+        .unwrap_or_default()
+        .with_font_size(font_size_control());
     entity_commands.try_insert((
-        TextFont {
-            font: font_resource.primary_font.clone(),
-            font_size: font_size_control(),
-            ..default()
-        },
+        text_font,
         TextColor(color),
     ));
 }

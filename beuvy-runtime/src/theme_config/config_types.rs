@@ -25,7 +25,7 @@ pub struct FontConfig {
 impl Default for FontConfig {
     fn default() -> Self {
         Self {
-            path: "fonts/SarasaFixedSC-Regular.ttf".to_string(),
+            path: String::new(),
         }
     }
 }

@@ -1,12 +1,12 @@
 use super::{AddText, FontResource, LocalizedText, LocalizedTextFormat};
 use crate::build_pending::UiBuildPending;
-use crate::style::font_asset_path;
 use bevy::prelude::*;
 use bevy_localization::Localization;
 
-pub(super) fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let primary_font = asset_server.load(font_asset_path());
-    commands.insert_resource(FontResource { primary_font });
+pub(super) fn setup(mut commands: Commands, font_resource: Option<Res<FontResource>>) {
+    if font_resource.is_none() {
+        commands.insert_resource(FontResource::default());
+    }
 }
 
 pub(super) fn add_text(
@@ -41,13 +41,16 @@ pub(super) fn add_text(
             _ => add_text.text.clone(),
         };
 
+        let text_font = font_resource
+            .primary_font
+            .clone()
+            .map(TextFont::from)
+            .unwrap_or_default()
+            .with_font_size(add_text.size);
+
         entity_commands.try_insert((
             Text::new(initial_text),
-            TextFont {
-                font: font_resource.primary_font.clone(),
-                font_size: add_text.size,
-                ..default()
-            },
+            text_font,
             add_text.line_height,
             TextColor(add_text.color),
         ));
@@ -76,9 +79,7 @@ mod tests {
     #[test]
     fn add_text_ignores_entities_despawned_before_apply() {
         let mut app = App::new();
-        app.insert_resource(FontResource {
-            primary_font: Handle::<Font>::default(),
-        })
+        app.insert_resource(FontResource::default())
         .register_required_components::<AddText, UiBuildPending>();
 
         let entity = app.world_mut().spawn(AddText::default()).id();

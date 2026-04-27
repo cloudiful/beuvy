@@ -1,5 +1,6 @@
 use crate::select::model::{Select, SelectPanel, SelectTrigger};
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy::ui::Val::{Auto, Percent, Px};
 
 pub(super) const SELECT_PANEL_GAP: f32 = 6.0;
@@ -12,7 +13,13 @@ pub(crate) fn sync_select_panel_placement(
     mut panel_nodes: Query<(&mut Node, &ComputedNode), With<SelectPanel>>,
     parents: Query<&ChildOf>,
     ancestors: Query<(&Node, &ComputedNode, &UiGlobalTransform), Without<SelectPanel>>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
+    let window_rect = primary_window
+        .iter()
+        .next()
+        .map(|window| Rect::from_center_size(Vec2::ZERO, window.size()));
+
     for select in &selects {
         if !select.open {
             continue;
@@ -27,7 +34,8 @@ pub(crate) fn sync_select_panel_placement(
 
         let trigger_rect = node_global_rect(trigger_computed, trigger_transform);
         let clip_rect = nearest_vertical_clip_rect(select.panel, &parents, &ancestors)
-            .unwrap_or_else(|| node_global_rect(trigger_computed, trigger_transform));
+            .or(window_rect)
+            .unwrap_or(trigger_rect);
         let below_space = (clip_rect.max.y - trigger_rect.max.y - SELECT_PANEL_GAP).max(0.0);
         let above_space = (trigger_rect.min.y - clip_rect.min.y - SELECT_PANEL_GAP).max(0.0);
         let open_up = below_space < SELECT_PANEL_MIN_HEIGHT && above_space > below_space;
