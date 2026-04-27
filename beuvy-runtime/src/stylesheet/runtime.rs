@@ -80,7 +80,7 @@ pub fn runtime_style_sheet() -> Arc<UiStyleSheet> {
     sheet
 }
 
-fn load_runtime_style_sheet(source: &RuntimeStyleSource) -> UiStyleSheet {
+pub(super) fn load_runtime_style_sheet(source: &RuntimeStyleSource) -> UiStyleSheet {
     let RuntimeStyleSource::File(path) = source else {
         return default_style_sheet().clone();
     };

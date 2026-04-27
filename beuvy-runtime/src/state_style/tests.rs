@@ -1,6 +1,6 @@
 use super::transition::color_nearly_equal;
 use super::*;
-use crate::theme_config::resolve_theme_color_value;
+use crate::style::resolve_color_value;
 use crate::utility::{UtilityTransitionProperty, UtilityVal, UtilityVisualStylePatch};
 use bevy::time::TimeUpdateStrategy;
 use bevy::ui::Val::Px;
@@ -66,16 +66,12 @@ fn active_overrides_hover_and_focus_keeps_outline() {
     let outline = entity_ref.get::<Outline>().expect("outline");
     assert_eq!(
         background.0,
-        resolve_theme_color_value("var(--color-button-bg-active)")
-            .expect("active color")
-            .to_bevy()
+        resolve_color_value("var(--color-button-bg-active)").expect("active color")
     );
     assert_eq!(outline.width, Px(2.0));
     assert_eq!(
         outline.color,
-        resolve_theme_color_value("var(--color-primary)")
-            .expect("primary color")
-            .to_bevy()
+        resolve_color_value("var(--color-primary)").expect("primary color")
     );
 }
 
@@ -105,9 +101,7 @@ fn state_source_uses_parent_state() {
         .expect("text color");
     assert_eq!(
         text.0,
-        resolve_theme_color_value("var(--color-button-text)")
-            .expect("text color")
-            .to_bevy()
+        resolve_color_value("var(--color-button-text)").expect("text color")
     );
 }
 
@@ -121,11 +115,7 @@ fn color_transition_reaches_target() {
         .world_mut()
         .spawn((
             sample_transition_styles(),
-            BackgroundColor(
-                resolve_theme_color_value("var(--color-button-bg)")
-                    .expect("base color")
-                    .to_bevy(),
-            ),
+            BackgroundColor(resolve_color_value("var(--color-button-bg)").expect("base color")),
         ))
         .id();
 
@@ -146,9 +136,7 @@ fn color_transition_reaches_target() {
         .get::<BackgroundColor>()
         .expect("background")
         .0;
-    let target = resolve_theme_color_value("var(--color-button-bg-hover)")
-        .expect("hover color")
-        .to_bevy();
+    let target = resolve_color_value("var(--color-button-bg-hover)").expect("hover color");
     assert!(!color_nearly_equal(mid, target));
 
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(

@@ -1,57 +1,89 @@
 # beuvy
 
-`beuvy` is the facade crate for the Beuvy UI stack. By default it re-exports
-`beuvy-runtime` and also enables the declarative authoring layer that parses a
-compact UI asset format into typed runtime data.
+`beuvy` is a Vue-flavored declarative UI layer for Bevy. It lets you describe
+UI with a compact SFC-like template format, parse it into typed assets, and
+materialize it with the reusable controls from `beuvy-runtime`.
 
-Use this crate when an application needs either:
+Use `beuvy` when you want:
 
-- the low-level runtime controls and utility styling from `beuvy-runtime`
-- the higher-level declarative shell, bindings, localized text, refs, and style
-  patches layered on top
+- `<template>`-driven UI authoring
+- Vue-style directives like `v-if`, `v-show`, `v-for`, `v-model`, and `@click`
+- runtime bindings, refs, localized text, and style patches on top of Bevy UI
 
 ## Crates
 
-- `beuvy`: facade crate with feature-gated declarative authoring support.
+- `beuvy`: the high-level declarative authoring crate.
 - `beuvy-runtime`: reusable Bevy UI controls, utility-class styling, and
-  state-driven visual styles.
+  state-driven visual styles used underneath `beuvy`.
 
 ## Install
-
-```toml
-[dependencies]
-beuvy = "0.1.0"
-```
-
-Thin facade usage, runtime only:
-
-```toml
-[dependencies]
-beuvy = { version = "0.1.0", default-features = false, features = ["runtime"] }
-```
-
-Declarative or Vue-flavored authoring layer:
 
 ```toml
 [dependencies]
 beuvy = { version = "0.1.0", default-features = false, features = ["vue"] }
 ```
 
-The runtime crate can still be used directly:
+If you want the current default bundle:
+
+```toml
+[dependencies]
+beuvy = "0.1.0"
+```
+
+If you only need the low-level runtime controls:
+
+```toml
+[dependencies]
+beuvy = { version = "0.1.0", default-features = false, features = ["runtime"] }
+```
+
+Or depend on the runtime crate directly:
 
 ```toml
 [dependencies]
 beuvy-runtime = "0.1.0"
 ```
 
-## Feature Layout
+## Vue-Style Authoring
 
-- `runtime`: re-exports `beuvy-runtime` as the stable low-level surface.
-- `declarative`: parser, asset loader, shell materialization, bindings.
-- `vue`: current alias to `declarative`, reserved for higher-level authoring
-  APIs as they split out over time.
+`beuvy` accepts a compact SFC-like format with top-level `<template>`, optional
+`<script>`, and optional `<style>` blocks. The current surface focuses on
+pragmatic UI authoring rather than full Vue compatibility.
 
-## Quick Start
+Supported patterns include:
+
+- `v-if`, `v-else-if`, `v-else`, `v-show`
+- `v-for`
+- `v-model`
+- `:class`, `:style`, `:value`, `:disabled`, `:ref`
+- `@click`, `@input`, `@change`, `@scroll`, `@wheel`
+- `{{ mustache }}` text interpolation and `$t(...)` localized text
+
+Example:
+
+```xml
+<template>
+  <section class="flex flex-col gap-3 p-4">
+    <h1>{{ title }}</h1>
+
+    <input v-model="draft.name" placeholder="Pilot name" />
+
+    <button @click="selectedTab = 'inventory'">Inventory</button>
+
+    <p v-if="draft.name">Hello {{ draft.name }}</p>
+
+    <select v-model="selectedItem">
+      <option v-for="entry in items" :value="entry.value">
+        {{ entry.text }}
+      </option>
+    </select>
+  </section>
+</template>
+```
+
+## Bevy Integration
+
+Register the declarative runtime plugin:
 
 ```rust
 use bevy::prelude::*;
@@ -65,9 +97,27 @@ fn main() {
 }
 ```
 
-## Runtime Controls
+Programmatic parsing is also available:
 
-For direct control construction, `beuvy` now works as a thin facade too:
+```rust
+use beuvy::parse_declarative_ui_asset;
+
+let asset = parse_declarative_ui_asset(
+    r#"<template><button @click="tab = 'inventory'">Open</button></template>"#,
+)?;
+```
+
+## Feature Layout
+
+- `runtime`: re-exports `beuvy-runtime` for direct low-level use.
+- `declarative`: parser, asset loader, shell materialization, bindings.
+- `vue`: preferred high-level feature alias for declarative authoring.
+
+## Runtime Layer
+
+`beuvy-runtime` still exists as the lower-level layer. `beuvy` re-exports the
+main runtime surface, so direct control construction can stay on the `beuvy`
+import path:
 
 ```rust
 use bevy::prelude::*;
@@ -107,8 +157,7 @@ fn setup(mut commands: Commands) {
 }
 ```
 
-If you only need the low-level layer, depending on `beuvy-runtime` directly is
-still fine.
+Use `beuvy-runtime` directly only when you do not want the declarative layer.
 
 ## License
 

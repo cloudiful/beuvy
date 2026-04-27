@@ -1,9 +1,6 @@
 use super::*;
 use std::fs;
-use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-static RUNTIME_STYLE_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn stylesheet_expands_apply_and_variants() {
@@ -36,8 +33,6 @@ fn stylesheet_expands_apply_and_variants() {
 
 #[test]
 fn runtime_stylesheet_applies_project_overlay_utilities() {
-    let _guard = RUNTIME_STYLE_LOCK.lock().expect("runtime style test lock");
-    let previous_source = runtime_style_source().clone();
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("unix time")
@@ -58,11 +53,9 @@ fn runtime_stylesheet_applies_project_overlay_utilities() {
     )
     .expect("temporary runtime stylesheet should write");
 
-    replace_runtime_style_source(RuntimeStyleSource::file(
+    let sheet = runtime::load_runtime_style_sheet(&RuntimeStyleSource::file(
         temp_path.to_string_lossy().into_owned(),
     ));
-
-    let sheet = runtime_style_sheet();
     let patch = parse_style_classes_with_sheet(&sheet, "button-root btn-bordered")
         .expect("runtime stylesheet should resolve project utility");
     assert_eq!(
@@ -74,6 +67,5 @@ fn runtime_stylesheet_applies_project_overlay_utilities() {
         Some("var(--color-brand)")
     );
 
-    replace_runtime_style_source(previous_source);
     let _ = fs::remove_file(temp_path);
 }
