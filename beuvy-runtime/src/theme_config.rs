@@ -11,9 +11,9 @@ pub use self::color::{
 #[allow(unused_imports)]
 pub use self::config_types::{
     BorderConfig, ButtonConfig, CheckboxConfig, ControlConfig, FieldConfig, FontConfig,
-    InteractionConfig, PanelConfig, PopupConfig, RadiusConfig, ResponsiveConfig, SelectConfig,
-    SliderConfig, SpacingConfig, StatePaletteConfig, SurfaceConfig, TextConfig, ThemeTokensConfig,
-    TileConfig, TypographyConfig, UiThemeConfig,
+    InputConfig, InteractionConfig, PanelConfig, PopupConfig, RadiusConfig, ResponsiveConfig,
+    SelectConfig, SliderConfig, SpacingConfig, StatePaletteConfig, SurfaceConfig, TextConfig,
+    ThemeTokensConfig, TileConfig, TypographyConfig, UiThemeConfig,
 };
 
 static UI_THEME_CONFIG: OnceLock<UiThemeConfig> = OnceLock::new();

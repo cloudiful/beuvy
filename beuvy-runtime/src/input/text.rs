@@ -78,9 +78,9 @@ pub(crate) fn update_input_text(
     field: &InputField,
     disabled: bool,
 ) {
-    if field.text_entity == Entity::PLACEHOLDER {
+    let Some(text_entity) = field.text_entity else {
         return;
-    }
+    };
 
     let display_text = field.edit_state.display_text_string(&field.placeholder);
     let text = if disabled && field.edit_state.preedit().is_some() {
@@ -94,9 +94,9 @@ pub(crate) fn update_input_text(
     } else {
         display_text.text
     };
-    set_plain_text(commands, field.text_entity, text);
+    set_plain_text(commands, text_entity, text);
 
-    let Ok(mut entity_commands) = commands.get_entity(field.text_entity) else {
+    let Ok(mut entity_commands) = commands.get_entity(text_entity) else {
         return;
     };
     let color = if disabled {
@@ -174,6 +174,19 @@ mod tests {
         let bundle = input_text_bundle(&add_input);
 
         assert_eq!(bundle.layout.linebreak, LineBreak::NoWrap);
+    }
+
+    #[test]
+    fn empty_input_text_bundle_uses_placeholder_color() {
+        let add_input = AddInput {
+            placeholder: "Hint".to_string(),
+            ..Default::default()
+        };
+
+        let bundle = input_text_bundle(&add_input);
+
+        assert_eq!(bundle.text, "Hint");
+        assert_eq!(bundle.color, text_placeholder_color());
     }
 
     #[test]

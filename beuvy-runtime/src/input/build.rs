@@ -4,16 +4,16 @@ use super::text::{
     default_input_node, default_textarea_node, input_text_bundle, input_text_marker,
     input_text_node,
 };
-use super::value::normalize_numeric_value;
 use super::{
     AddInput, DisabledInput, InputCaret, InputClickState, InputField, InputScrollOffset,
-    InputSelection, InputSelectionSegment, InputType,
+    InputSelection, InputType, RangeState, UndoStack,
 };
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
 use crate::style::{
-    apply_utility_patch, resolve_classes_with_fallback, root_visual_styles_from_patch,
+    apply_utility_patch, input_selection_color, resolve_classes_with_fallback,
+    root_visual_styles_from_patch,
 };
 use crate::text::AddText;
 use bevy::picking::Pickable;
@@ -58,21 +58,16 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
             .entity(entity)
             .queue_silenced(move |mut entity_commands: EntityWorldMut| {
                 let input_entity = entity_commands.id();
-                let normalized_value =
-                    if matches!(add_input.input_type, InputType::Number | InputType::Range) {
-                        normalize_numeric_value(
-                            &add_input.value,
-                            add_input.min,
-                            add_input.max,
-                            add_input.step,
-                        )
-                    } else {
-                        add_input.value.clone()
-                    };
-
-                let mut text_entity = Entity::PLACEHOLDER;
-                let mut selection_entity = Entity::PLACEHOLDER;
-                let mut caret_entity = Entity::PLACEHOLDER;
+                let normalized_value = if add_input.input_type == InputType::Range {
+                    super::value::normalize_numeric_value(
+                        &add_input.value,
+                        add_input.min,
+                        add_input.max,
+                        add_input.step,
+                    )
+                } else {
+                    add_input.value.clone()
+                };
 
                 entity_commands.insert((
                     Name::new(add_input.name.clone()),
@@ -83,19 +78,16 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
                         placeholder: add_input.placeholder.clone(),
-                        text_entity,
-                        selection_entity,
-                        caret_entity,
+                        text_entity: None,
+                        selection_entity: None,
+                        caret_entity: None,
                         edit_state: TextEditState::with_text(normalized_value),
                         min: add_input.min,
                         max: add_input.max,
                         step: add_input.step,
-                        range_track: None,
-                        range_fill: None,
-                        range_thumb: None,
-                        drag_start_value: 0.0,
                         caret_blink_resume_at: 0.0,
                         preferred_caret_x: None,
+                        undo_stack: UndoStack::default(),
                     },
                     InputClickState::default(),
                 ));
@@ -113,12 +105,12 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         let thumb = spawn_range_thumb(world);
                         world.entity_mut(track).add_children(&[fill, thumb]);
                         world.entity_mut(input_entity).add_child(track);
-                        let mut input = world
-                            .get_mut::<InputField>(input_entity)
-                            .expect("input just inserted");
-                        input.range_track = Some(track);
-                        input.range_fill = Some(fill);
-                        input.range_thumb = Some(thumb);
+                        world.entity_mut(input_entity).insert(RangeState {
+                            track,
+                            fill,
+                            thumb,
+                            drag_start_value: 0.0,
+                        });
                     });
                 } else {
                     let text_patch = resolve_classes_with_fallback(
@@ -129,14 +121,12 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     let mut text_node = input_text_node();
                     apply_utility_patch(&mut text_node, &text_patch);
                     let text_add_input = AddInput {
-                        value: entity_commands
-                            .get::<InputField>()
-                            .map(|field| field.value().to_string())
-                            .unwrap_or_default(),
+                        value: add_input.value.clone(),
                         ..add_input.clone()
                     };
                     entity_commands.world_scope(|world| {
-                        selection_entity = world
+                        let selection_color = input_selection_color();
+                        let selection_entity = world
                             .spawn((
                                 InputSelection,
                                 Pickable::IGNORE,
@@ -147,26 +137,13 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                     height: Val::Px(0.0),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgba(0.23, 0.45, 0.96, 0.18)),
+                                BackgroundColor(selection_color),
                             ))
                             .id();
-                        world.entity_mut(selection_entity).with_children(|parent| {
-                            for _ in 0..4 {
-                                parent.spawn((
-                                    InputSelectionSegment,
-                                    Pickable::IGNORE,
-                                    Visibility::Hidden,
-                                    Node {
-                                        position_type: PositionType::Absolute,
-                                        width: Val::Px(0.0),
-                                        height: Val::Px(0.0),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgba(0.23, 0.45, 0.96, 0.18)),
-                                ));
-                            }
+                        world.entity_mut(selection_entity).with_children(|_parent| {
+                            // Segments are spawned dynamically in sync_input_edit_visuals
                         });
-                        text_entity = world
+                        let text_entity = world
                             .spawn((
                                 input_text_marker(),
                                 Pickable::IGNORE,
@@ -180,18 +157,18 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                 text_node,
                             ))
                             .id();
-                        caret_entity = world
+                        let caret_entity = world
                             .spawn((
                                 InputCaret,
                                 Pickable::IGNORE,
                                 Visibility::Hidden,
                                 Node {
                                     position_type: PositionType::Absolute,
-                                    width: Val::Px(2.0),
+                                    width: Val::Px(crate::style::input_caret_width()),
                                     height: Val::Px(0.0),
                                     ..default()
                                 },
-                                BackgroundColor(crate::style::text_primary_color()),
+                                BackgroundColor(crate::style::input_caret_color()),
                             ))
                             .id();
                         world.entity_mut(input_entity).add_children(&[
@@ -202,9 +179,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         let mut input = world
                             .get_mut::<InputField>(input_entity)
                             .expect("input just inserted");
-                        input.text_entity = text_entity;
-                        input.selection_entity = selection_entity;
-                        input.caret_entity = caret_entity;
+                        input.text_entity = Some(text_entity);
+                        input.selection_entity = Some(selection_entity);
+                        input.caret_entity = Some(caret_entity);
                     });
                 }
 

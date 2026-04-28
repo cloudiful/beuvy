@@ -1,6 +1,7 @@
 use super::value::{format_numeric_value, range_progress, snap_numeric_value};
 use super::{
-    DisabledInput, InputField, InputValueChangedMessage, RangeFill, RangeThumb, RangeTrack,
+    DisabledInput, InputField, InputValueChangedMessage, RangeFill, RangeState, RangeThumb,
+    RangeTrack, push_range_value_changed,
 };
 use bevy::picking::Pickable;
 use bevy::prelude::*;
@@ -108,26 +109,21 @@ pub(crate) fn spawn_range_thumb(world: &mut World) -> Entity {
 }
 
 pub(crate) fn sync_range_visuals(
-    fields: Query<(Entity, &InputField), Or<(Changed<InputField>, Added<InputField>)>>,
+    fields: Query<(Entity, &InputField, &RangeState), Or<(Changed<InputField>, Added<InputField>)>>,
     track_nodes: Query<&ComputedNode, With<RangeTrack>>,
     thumb_nodes: Query<&ComputedNode, With<RangeThumb>>,
     mut nodes: Query<&mut Node>,
 ) {
-    for (_entity, field) in &fields {
-        let (Some(track), Some(fill), Some(thumb)) =
-            (field.range_track, field.range_fill, field.range_thumb)
-        else {
-            continue;
-        };
-        let Ok(track_node) = track_nodes.get(track) else {
+    for (_entity, field, range_state) in &fields {
+        let Ok(track_node) = track_nodes.get(range_state.track) else {
             continue;
         };
         let thumb_size = thumb_nodes
-            .get(thumb)
+            .get(range_state.thumb)
             .map(computed_node_logical_width)
             .unwrap_or_else(|_| range_thumb_size());
         let thumb_height = thumb_nodes
-            .get(thumb)
+            .get(range_state.thumb)
             .map(computed_node_logical_height)
             .unwrap_or(thumb_size);
         let min = field.min.unwrap_or(0.0);
@@ -142,10 +138,10 @@ pub(crate) fn sync_range_visuals(
         let thumb_left = inset + travel * progress;
         let thumb_top = centered_thumb_top(track_height, thumb_height);
 
-        if let Ok(mut fill_node) = nodes.get_mut(fill) {
+        if let Ok(mut fill_node) = nodes.get_mut(range_state.fill) {
             fill_node.width = Px(snap_slider_pixel(fill_width.max(0.0)));
         }
-        if let Ok(mut thumb_node) = nodes.get_mut(thumb) {
+        if let Ok(mut thumb_node) = nodes.get_mut(range_state.thumb) {
             thumb_node.left = Px(snap_slider_pixel(thumb_left.max(0.0)));
             thumb_node.top = Px(snap_slider_pixel(thumb_top));
         }
@@ -161,6 +157,7 @@ fn range_track_press(
         &UiGlobalTransform,
     )>,
     mut fields: Query<(&mut InputField, Has<DisabledInput>)>,
+    mut range_states: Query<&mut RangeState>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
     thumbs: Query<&ComputedNode, With<RangeThumb>>,
     ui_scale: Res<UiScale>,
@@ -175,12 +172,14 @@ fn range_track_press(
     if disabled {
         return;
     }
-    field.drag_start_value = field.numeric_value().unwrap_or(field.min.unwrap_or(0.0));
-    let thumb_size = field
-        .range_thumb
-        .and_then(|thumb| thumbs.get(thumb).ok())
+    let mut range_state = range_states
+        .get_mut(track.input)
+        .expect("range state missing");
+    range_state.drag_start_value = field.numeric_value().unwrap_or(field.min.unwrap_or(0.0));
+    let thumb_size = thumbs
+        .get(range_state.thumb)
         .map(computed_node_logical_width)
-        .unwrap_or_else(range_thumb_size);
+        .unwrap_or_else(|_| range_thumb_size());
     let value = pointer_position_to_range_value(
         event.pointer_location.position,
         node,
@@ -197,24 +196,29 @@ fn range_track_drag_start(
     mut event: On<Pointer<DragStart>>,
     tracks: Query<&RangeTrack>,
     mut fields: Query<(&mut InputField, Has<DisabledInput>)>,
+    mut range_states: Query<&mut RangeState>,
 ) {
     let Ok(track) = tracks.get(event.entity) else {
         return;
     };
     event.propagate(false);
-    let Ok((mut field, disabled)) = fields.get_mut(track.input) else {
+    let Ok((field, disabled)) = fields.get_mut(track.input) else {
         return;
     };
     if disabled {
         return;
     }
-    field.drag_start_value = field.numeric_value().unwrap_or(field.min.unwrap_or(0.0));
+    let mut range_state = range_states
+        .get_mut(track.input)
+        .expect("range state missing");
+    range_state.drag_start_value = field.numeric_value().unwrap_or(field.min.unwrap_or(0.0));
 }
 
 fn range_track_drag(
     mut event: On<Pointer<Drag>>,
     tracks: Query<(&RangeTrack, &ComputedNode)>,
     mut fields: Query<(&mut InputField, Has<DisabledInput>)>,
+    range_states: Query<&RangeState>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
     thumbs: Query<&ComputedNode, With<RangeThumb>>,
     ui_scale: Res<UiScale>,
@@ -229,13 +233,16 @@ fn range_track_drag(
     if disabled {
         return;
     }
-    let thumb_size = field
-        .range_thumb
-        .and_then(|thumb| thumbs.get(thumb).ok())
+    let range_state = range_states
+        .get(track.input)
+        .expect("range state missing");
+    let thumb_size = thumbs
+        .get(range_state.thumb)
         .map(computed_node_logical_width)
-        .unwrap_or_else(range_thumb_size);
+        .unwrap_or_else(|_| range_thumb_size());
     let value = drag_distance_to_range_value(
         &field,
+        range_state.drag_start_value,
         computed_node_logical_width(node),
         thumb_size,
         event.distance.x,
@@ -254,17 +261,13 @@ fn commit_range_value(
     value: f32,
     value_changed: &mut MessageWriter<InputValueChangedMessage>,
 ) {
-    let value = snap_numeric_value(value, field.min, field.max, field.step);
-    let next_value = format_numeric_value(value, field.step);
+    let snapped = snap_numeric_value(value, field.min, field.max, field.step);
+    let next_value = format_numeric_value(snapped, field.step);
     if field.value() == next_value {
         return;
     }
     field.set_value(next_value.clone());
-    value_changed.write(InputValueChangedMessage {
-        entity,
-        name: field.name.clone(),
-        value: next_value,
-    });
+    push_range_value_changed(value_changed, entity, &field.name, next_value);
 }
 
 fn pointer_position_to_range_value(
@@ -300,6 +303,7 @@ fn computed_node_logical_height(node: &ComputedNode) -> f32 {
 
 fn drag_distance_to_range_value(
     field: &InputField,
+    drag_start_value: f32,
     track_width: f32,
     thumb_size: f32,
     drag_distance_x: f32,
@@ -313,7 +317,7 @@ fn drag_distance_to_range_value(
         return min;
     }
     let logical_drag_distance = drag_distance_x / ui_scale.0;
-    (field.drag_start_value + (logical_drag_distance / travel) * span).clamp(min, max)
+    (drag_start_value + (logical_drag_distance / travel) * span).clamp(min, max)
 }
 
 fn snap_slider_pixel(value: f32) -> f32 {
@@ -330,19 +334,16 @@ mod tests {
             name: "range".to_string(),
             input_type: super::super::InputType::Range,
             placeholder: String::new(),
-            text_entity: Entity::PLACEHOLDER,
-            selection_entity: Entity::PLACEHOLDER,
-            caret_entity: Entity::PLACEHOLDER,
+            text_entity: None,
+            selection_entity: None,
+            caret_entity: None,
             edit_state: TextEditState::with_text(value),
             min: Some(min),
             max: Some(max),
             step: Some(step),
-            range_track: None,
-            range_fill: None,
-            range_thumb: None,
-            drag_start_value: 0.0,
             caret_blink_resume_at: 0.0,
             preferred_caret_x: None,
+            undo_stack: crate::input::UndoStack::default(),
         }
     }
 
@@ -416,7 +417,6 @@ mod tests {
     #[test]
     fn drag_distance_to_range_value_uses_total_drag_distance() {
         let field = InputField {
-            drag_start_value: 40.0,
             ..range_field(0.0, 100.0, 10.0, "40")
         };
         let track_width = RANGE_TRACK_WIDTH;
@@ -424,6 +424,7 @@ mod tests {
         let travel = track_width - range_track_inset() * 2.0 - thumb_size;
         let value = drag_distance_to_range_value(
             &field,
+            40.0,
             track_width,
             thumb_size,
             travel * 0.2,

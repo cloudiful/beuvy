@@ -100,6 +100,23 @@ pub fn prompt_shadow() -> BoxShadow {
     popup_shadow(&sheet.config().panel.popup)
 }
 
+pub fn input_caret_width() -> f32 {
+    runtime_style_sheet().config().control.input.caret_width
+}
+
+pub fn input_caret_color() -> Color {
+    runtime_style_sheet().config().control.input.caret_color.to_bevy()
+}
+
+pub fn input_selection_color() -> Color {
+    runtime_style_sheet()
+        .config()
+        .control
+        .input
+        .selection_color
+        .to_bevy()
+}
+
 pub fn panel_surface_background() -> BackgroundColor {
     BackgroundColor(runtime_style_sheet().config().panel.main.background.to_bevy())
 }

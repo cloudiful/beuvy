@@ -320,6 +320,7 @@ pub struct ControlConfig {
     pub checkbox: CheckboxConfig,
     pub select: SelectConfig,
     pub slider: SliderConfig,
+    pub input: InputConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -424,6 +425,23 @@ impl Default for FieldConfig {
             border: ThemeColor::hex("#70E88E60"),
             active_background: ThemeColor::hex("#2C7A386C"),
             active_border: ThemeColor::hex("#88FFA484"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct InputConfig {
+    pub caret_width: f32,
+    pub caret_color: ThemeColor,
+    pub selection_color: ThemeColor,
+}
+
+impl Default for InputConfig {
+    fn default() -> Self {
+        Self {
+            caret_width: 2.0,
+            caret_color: ThemeColor::hex("#A6FFBCFF"),
+            selection_color: ThemeColor::hex("#3B73F52E"),
         }
     }
 }

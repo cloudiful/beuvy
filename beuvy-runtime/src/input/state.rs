@@ -11,7 +11,9 @@ mod visuals;
 
 use super::text::update_input_text;
 use super::value::{can_insert_number_char, normalize_numeric_value};
-use super::{InputField, InputType, InputValueChangedMessage, is_printable_char};
+use super::{
+    InputField, InputType, InputValueChangedMessage, is_printable_char, push_value_changed,
+};
 use crate::text::FontResource;
 use bevy::input::{ButtonInput, keyboard::KeyCode};
 use bevy::prelude::*;
@@ -91,10 +93,6 @@ fn commit_numeric_field(
     if !field.edit_state.normalize_text(next) {
         return false;
     }
-    value_changed.write(InputValueChangedMessage {
-        entity,
-        name: field.name.clone(),
-        value: field.value().to_string(),
-    });
+    push_value_changed(value_changed, entity, field);
     true
 }

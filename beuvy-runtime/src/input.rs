@@ -1,4 +1,5 @@
 mod build;
+mod clipboard;
 mod edit;
 mod range;
 mod state;
@@ -12,7 +13,8 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::window::Ime;
 
-pub use edit::{PreeditState, TextEditState};
+pub(crate) use clipboard::{InputClipboard, UndoStack};
+pub use edit::{PreeditState, SelectionDirection, TextEditState};
 
 pub struct InputPlugin;
 
@@ -71,19 +73,24 @@ pub struct InputField {
     pub name: String,
     pub input_type: InputType,
     pub placeholder: String,
-    pub text_entity: Entity,
-    pub selection_entity: Entity,
-    pub caret_entity: Entity,
+    pub text_entity: Option<Entity>,
+    pub selection_entity: Option<Entity>,
+    pub caret_entity: Option<Entity>,
     pub edit_state: TextEditState,
     pub min: Option<f32>,
     pub max: Option<f32>,
     pub step: Option<f32>,
-    pub range_track: Option<Entity>,
-    pub range_fill: Option<Entity>,
-    pub range_thumb: Option<Entity>,
-    pub drag_start_value: f32,
     pub caret_blink_resume_at: f64,
     pub preferred_caret_x: Option<f32>,
+    pub undo_stack: UndoStack,
+}
+
+#[derive(Component, Debug, Clone)]
+pub(crate) struct RangeState {
+    pub track: Entity,
+    pub fill: Entity,
+    pub thumb: Entity,
+    pub drag_start_value: f32,
 }
 
 impl InputField {
@@ -138,6 +145,12 @@ pub struct InputSelection;
 #[derive(Component, Debug, Clone, Copy)]
 pub(crate) struct InputSelectionSegment;
 
+#[derive(Resource, Debug, Default)]
+pub(crate) struct SelectionSegmentPool {
+    pub available: usize,
+    pub max_needed: usize,
+}
+
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InputCaret;
 
@@ -184,6 +197,8 @@ impl Plugin for InputPlugin {
             .add_message::<Ime>()
             .add_message::<Pointer<Click>>()
             .init_resource::<InputFocus>()
+            .init_resource::<SelectionSegmentPool>()
+            .insert_non_send_resource(InputClipboard::new())
             .add_systems(
                 Update,
                 (
@@ -220,7 +235,7 @@ fn clear_input_focus(input_focus: &mut InputFocus) {
     input_focus.clear();
 }
 
-fn push_value_changed(
+pub(crate) fn push_value_changed(
     value_changed: &mut MessageWriter<InputValueChangedMessage>,
     entity: Entity,
     field: &InputField,
@@ -229,6 +244,19 @@ fn push_value_changed(
         entity,
         name: field.name.clone(),
         value: field.value().to_string(),
+    });
+}
+
+pub(crate) fn push_range_value_changed(
+    value_changed: &mut MessageWriter<InputValueChangedMessage>,
+    entity: Entity,
+    name: &str,
+    value: String,
+) {
+    value_changed.write(InputValueChangedMessage {
+        entity,
+        name: name.to_string(),
+        value,
     });
 }
 

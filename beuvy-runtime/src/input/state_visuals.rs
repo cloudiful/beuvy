@@ -4,9 +4,11 @@ use super::metrics::{
 use crate::focus::UiFocused;
 use crate::input::{
     DisabledInput, InputCaret, InputCursorPosition, InputField, InputScrollOffset, InputSelection,
-    InputSelectionSegment, InputText, InputType,
+    InputSelectionSegment, InputText, InputType, SelectionSegmentPool,
 };
+use crate::style::{input_caret_width, input_selection_color};
 use bevy::math::Rect;
+use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::text::TextLayoutInfo;
 use bevy::window::PrimaryWindow;
@@ -87,20 +89,23 @@ pub(crate) fn sync_input_edit_visuals(
         Query<(&mut Node, &mut Visibility), With<InputCaret>>,
         Query<(&ChildOf, &mut Node, &mut Visibility), With<InputSelectionSegment>>,
     )>,
+    mut segment_pool: ResMut<SelectionSegmentPool>,
 ) {
     for (entity, field, disabled, focused, input_computed, input_transform) in &fields {
-        if matches!(field.input_type, InputType::Range) || field.text_entity == Entity::PLACEHOLDER
-        {
+        if matches!(field.input_type, InputType::Range) {
             continue;
         }
+        let Some(text_entity) = field.text_entity else {
+            continue;
+        };
         let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let Ok(layout) = text_nodes.get(field.text_entity) else {
+        let Ok(layout) = text_nodes.get(text_entity) else {
             continue;
         };
 
         let input_rect = node_global_rect(input_computed, input_transform);
         let input_scale = input_computed.inverse_scale_factor();
-        let caret_width = 2.0;
+        let caret_width = input_caret_width();
         let input_inset = input_computed.content_inset();
         let input_content_width = (input_computed.size().x * input_scale
             - input_inset.min_inset.x
@@ -112,15 +117,16 @@ pub(crate) fn sync_input_edit_visuals(
             .max(0.0);
         let caret_byte = field.edit_state.display_caret_byte();
         let raw_caret_x = text_x_for_byte(layout, &display_text.text, caret_byte);
-        let mut scroll_x = 0.0;
-        let mut scroll_y = 0.0;
         let (caret_line_x, caret_line_top, caret_line_height) = if field.is_multiline() {
             caret_geometry_for_byte(layout, &display_text.text, caret_byte)
                 .unwrap_or((raw_caret_x, 0.0, layout.size.y.max(0.0)))
         } else {
             (raw_caret_x, 0.0, layout.size.y.max(0.0))
         };
-        if let Ok((mut scroll_offset, mut text_node)) = visuals.p0().get_mut(field.text_entity) {
+
+        let mut scroll_x = 0.0;
+        let mut scroll_y = 0.0;
+        if let Ok((mut scroll_offset, mut text_node)) = visuals.p0().get_mut(text_entity) {
             if focused && !disabled {
                 let max_offset_x = (layout.size.x - input_content_width).max(0.0);
                 if raw_caret_x < scroll_offset.x {
@@ -155,8 +161,8 @@ pub(crate) fn sync_input_edit_visuals(
         let caret_top = text_origin.y + caret_line_top;
         let caret_center_y = caret_top + caret_line_height * 0.5;
 
-        if field.selection_entity != Entity::PLACEHOLDER {
-            if let Ok((mut node, mut visibility)) = visuals.p1().get_mut(field.selection_entity) {
+        if let Some(selection_entity) = field.selection_entity {
+            if let Ok((mut node, mut visibility)) = visuals.p1().get_mut(selection_entity) {
                 if let Some(range) = field.edit_state.selection_range() {
                     let rects = if field.is_multiline() {
                         selection_rects_for_range(layout, &display_text.text, range.start, range.end)
@@ -175,11 +181,17 @@ pub(crate) fn sync_input_edit_visuals(
                     } else {
                         Visibility::Visible
                     };
+
+                    let needed = rects.len();
+                    segment_pool.max_needed = segment_pool.max_needed.max(needed);
+
                     let mut assigned = 0usize;
+                    let mut segment_count = 0usize;
                     for (parent, mut segment_node, mut segment_visibility) in &mut visuals.p3() {
-                        if parent.parent() != field.selection_entity {
+                        if parent.parent() != selection_entity {
                             continue;
                         }
+                        segment_count += 1;
                         if let Some((left, top, width, height)) = rects.get(assigned).copied() {
                             segment_node.left = Val::Px(left);
                             segment_node.top = Val::Px(top);
@@ -195,10 +207,33 @@ pub(crate) fn sync_input_edit_visuals(
                             *segment_visibility = Visibility::Hidden;
                         }
                     }
+                    segment_pool.available = segment_count;
+
+                    if needed > segment_count {
+                        let selection_color = input_selection_color();
+                        let spawn_count = needed - segment_count;
+                        if let Ok(mut entity_commands) = commands.get_entity(selection_entity) {
+                            for _ in 0..spawn_count {
+                                entity_commands.with_child((
+                                    InputSelectionSegment,
+                                    Pickable::IGNORE,
+                                    Visibility::Hidden,
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        width: Val::Px(0.0),
+                                        height: Val::Px(0.0),
+                                        ..default()
+                                    },
+                                    BackgroundColor(selection_color),
+                                ));
+                            }
+                            segment_pool.available += spawn_count;
+                        }
+                    }
                 } else {
                     *visibility = Visibility::Hidden;
-                    for (parent, _, mut segment_visibility) in &mut visuals.p3() {
-                        if parent.parent() == field.selection_entity {
+                    for (_parent, _, mut segment_visibility) in &mut visuals.p3() {
+                        if _parent.parent() == selection_entity {
                             *segment_visibility = Visibility::Hidden;
                         }
                     }
@@ -206,10 +241,11 @@ pub(crate) fn sync_input_edit_visuals(
             }
         }
 
-        if field.caret_entity != Entity::PLACEHOLDER {
-            if let Ok((mut node, mut visibility)) = visuals.p2().get_mut(field.caret_entity) {
+        if let Some(caret_entity) = field.caret_entity {
+            if let Ok((mut node, mut visibility)) = visuals.p2().get_mut(caret_entity) {
                 node.left = Val::Px((caret_x - caret_width * 0.5).max(0.0));
                 node.top = Val::Px(caret_top);
+                node.width = Val::Px(caret_width);
                 node.height = Val::Px(caret_line_height.max(0.0));
                 let blink_visible = time.elapsed_secs_f64() < field.caret_blink_resume_at
                     || (time.elapsed_secs_f64() * 2.0).floor() as i64 % 2 == 0;

@@ -31,64 +31,33 @@ pub(super) fn text_x_for_byte(layout: &TextLayoutInfo, text: &str, byte: usize) 
     if byte == 0 || layout.glyphs.is_empty() {
         return 0.0;
     }
-    let glyph_scale = layout.scale_factor.max(f32::EPSILON);
 
-    for glyph in &layout.glyphs {
-        if byte == glyph.byte_index {
-            return glyph_left_x(glyph, glyph_scale);
-        }
-    }
-
-    let mut current_x = 0.0;
-    for (index, glyph) in layout.glyphs.iter().enumerate() {
-        let glyph_x = glyph_left_x(glyph, glyph_scale);
-        if byte <= glyph.byte_index {
-            return glyph_x;
-        }
-        current_x = glyph_trailing_x(layout, text, index, glyph_scale);
-        if byte <= glyph.byte_index + glyph.byte_length {
-            return current_x;
-        }
-    }
-
-    current_x
+    let lines = text_line_metrics(layout, text);
+    let Some(line) = line_for_caret_byte(&lines, byte) else {
+        return 0.0;
+    };
+    text_x_for_byte_in_line(layout, text, byte, line.line_index)
 }
 
 pub(super) fn text_byte_for_x(layout: &TextLayoutInfo, text: &str, x: f32) -> usize {
     if layout.glyphs.is_empty() {
         return 0;
     }
-    if x <= 0.0 {
+    let lines = text_line_metrics(layout, text);
+    let Some(line) = lines.first() else {
         return 0;
-    }
-    let glyph_scale = layout.scale_factor.max(f32::EPSILON);
-
-    for (index, glyph) in layout.glyphs.iter().enumerate() {
-        let start = glyph_left_x(glyph, glyph_scale);
-        let end = glyph_trailing_x(layout, text, index, glyph_scale);
-        let width = end - start;
-        let midpoint = start + width * 0.5;
-        if x < midpoint {
-            return glyph.byte_index;
-        }
-        if x <= end {
-            return glyph.byte_index + glyph.byte_length;
-        }
-    }
-
-    layout
-        .glyphs
-        .last()
-        .map(|glyph| glyph.byte_index + glyph.byte_length)
-        .unwrap_or(0)
+    };
+    text_byte_for_x_in_line(
+        layout,
+        text,
+        x,
+        line.line_index,
+        line.start_byte,
+        line.end_byte,
+    )
 }
 
-pub(super) fn text_byte_for_point(
-    layout: &TextLayoutInfo,
-    text: &str,
-    x: f32,
-    y: f32,
-) -> usize {
+pub(super) fn text_byte_for_point(layout: &TextLayoutInfo, text: &str, x: f32, y: f32) -> usize {
     let lines = text_line_metrics(layout, text);
     if lines.is_empty() {
         return 0;
@@ -105,7 +74,14 @@ pub(super) fn text_byte_for_point(
         .copied()
         .unwrap_or(lines[0]);
 
-    text_byte_for_x_in_line(layout, text, x, line.line_index, line.start_byte, line.end_byte)
+    text_byte_for_x_in_line(
+        layout,
+        text,
+        x,
+        line.line_index,
+        line.start_byte,
+        line.end_byte,
+    )
 }
 
 pub(super) fn caret_geometry_for_byte(
@@ -141,13 +117,15 @@ pub(super) fn move_byte_vertically(
     if target_index < 0 {
         return Some((0, current_x.unwrap_or(current.left)));
     }
-    let target = lines.iter().find(|line| line.line_index == target_index as usize);
+    let target = lines
+        .iter()
+        .find(|line| line.line_index == target_index as usize);
     let Some(target) = target.copied() else {
         let end = text.len();
         return Some((end, current_x.unwrap_or(current.right)));
     };
-    let preferred_x =
-        current_x.unwrap_or_else(|| text_x_for_byte_in_line(layout, text, byte, current.line_index));
+    let preferred_x = current_x
+        .unwrap_or_else(|| text_x_for_byte_in_line(layout, text, byte, current.line_index));
     let target_byte = text_byte_for_x_in_line(
         layout,
         text,
@@ -177,13 +155,48 @@ pub(super) fn selection_rects_for_range(
         }
         let left = text_x_for_byte_in_line(layout, text, range_start, line.line_index);
         let right = text_x_for_byte_in_line(layout, text, range_end, line.line_index);
-        rects.push((left, line.top, (right - left).max(0.0), line.bottom - line.top));
+        rects.push((
+            left,
+            line.top,
+            (right - left).max(0.0),
+            line.bottom - line.top,
+        ));
     }
     rects
 }
 
 fn glyph_left_x(glyph: &PositionedGlyph, scale: f32) -> f32 {
     (glyph.position.x - glyph.size.x * 0.5) / scale
+}
+
+fn run_bounds_for_line(
+    layout: &TextLayoutInfo,
+    line_glyphs: &[PositionedGlyph],
+    scale: f32,
+) -> Option<(f32, f32)> {
+    if line_glyphs.is_empty() {
+        return None;
+    }
+    let top = line_glyphs
+        .iter()
+        .map(|glyph| (glyph.position.y - glyph.size.y * 0.5) / scale)
+        .fold(f32::INFINITY, f32::min);
+    let bottom = line_glyphs
+        .iter()
+        .map(|glyph| (glyph.position.y + glyph.size.y * 0.5) / scale)
+        .fold(0.0, f32::max);
+    let mut left = f32::INFINITY;
+    let mut right: f32 = 0.0;
+    for run in &layout.run_geometry {
+        let run_min_y = run.bounds.min.y / scale;
+        let run_max_y = run.bounds.max.y / scale;
+        if run_max_y < top || run_min_y > bottom {
+            continue;
+        }
+        left = left.min(run.bounds.min.x / scale);
+        right = right.max(run.bounds.max.x / scale);
+    }
+    left.is_finite().then_some((left, right))
 }
 
 fn text_line_metrics(layout: &TextLayoutInfo, text: &str) -> Vec<TextLineMetrics> {
@@ -207,7 +220,8 @@ fn text_line_metrics(layout: &TextLayoutInfo, text: &str) -> Vec<TextLineMetrics
         let line_index = first.line_index;
         let start_index = index;
         let mut end_index = index;
-        while end_index + 1 < layout.glyphs.len() && layout.glyphs[end_index + 1].line_index == line_index
+        while end_index + 1 < layout.glyphs.len()
+            && layout.glyphs[end_index + 1].line_index == line_index
         {
             end_index += 1;
         }
@@ -216,11 +230,13 @@ fn text_line_metrics(layout: &TextLayoutInfo, text: &str) -> Vec<TextLineMetrics
             .iter()
             .map(|glyph| glyph_left_x(glyph, scale))
             .fold(f32::INFINITY, f32::min);
-        let right = line_glyphs
+        let glyph_right = line_glyphs
             .iter()
             .enumerate()
             .map(|(offset, _)| glyph_trailing_x(layout, text, start_index + offset, scale))
             .fold(0.0, f32::max);
+        let (line_left, _) =
+            run_bounds_for_line(layout, line_glyphs, scale).unwrap_or((left, glyph_right));
         let top = line_glyphs
             .iter()
             .map(|glyph| (glyph.position.y - glyph.size.y * 0.5) / scale)
@@ -233,8 +249,12 @@ fn text_line_metrics(layout: &TextLayoutInfo, text: &str) -> Vec<TextLineMetrics
             line_index,
             start_byte: first.byte_index,
             end_byte: layout.glyphs[end_index].byte_index + layout.glyphs[end_index].byte_length,
-            left: if left.is_finite() { left } else { 0.0 },
-            right,
+            left: if line_left.is_finite() {
+                line_left
+            } else {
+                0.0
+            },
+            right: glyph_right,
             top: if top.is_finite() { top } else { 0.0 },
             bottom,
         });
@@ -243,7 +263,12 @@ fn text_line_metrics(layout: &TextLayoutInfo, text: &str) -> Vec<TextLineMetrics
     lines
 }
 
-fn text_x_for_byte_in_line(layout: &TextLayoutInfo, text: &str, byte: usize, line_index: usize) -> f32 {
+fn text_x_for_byte_in_line(
+    layout: &TextLayoutInfo,
+    text: &str,
+    byte: usize,
+    line_index: usize,
+) -> f32 {
     let scale = layout.scale_factor.max(f32::EPSILON);
     let glyphs = layout
         .glyphs
@@ -254,9 +279,32 @@ fn text_x_for_byte_in_line(layout: &TextLayoutInfo, text: &str, byte: usize, lin
     if glyphs.is_empty() {
         return 0.0;
     }
+    let line_glyphs = glyphs
+        .iter()
+        .map(|(_, glyph)| (*glyph).clone())
+        .collect::<Vec<_>>();
+    let line_right = glyphs
+        .iter()
+        .map(|(index, _)| glyph_trailing_x(layout, text, *index, scale))
+        .fold(0.0, f32::max);
+    let (line_left, _) =
+        run_bounds_for_line(layout, &line_glyphs, scale).unwrap_or_else(|| {
+            let left = glyphs
+                .iter()
+                .map(|(_, glyph)| glyph_left_x(glyph, scale))
+                .fold(f32::INFINITY, f32::min);
+            (left, line_right)
+        });
     let first = glyphs[0].1;
     if byte <= first.byte_index {
-        return glyph_left_x(first, scale);
+        return line_left;
+    }
+    let line_end = glyphs
+        .last()
+        .map(|(_, glyph)| glyph.byte_index + glyph.byte_length)
+        .unwrap_or(first.byte_index);
+    if byte >= line_end {
+        return line_right;
     }
     let mut current_x = glyph_left_x(first, scale);
     for (index, glyph) in glyphs {
@@ -289,8 +337,27 @@ fn text_byte_for_x_in_line(
     if glyphs.is_empty() {
         return line_start.min(line_end);
     }
-    if x <= glyph_left_x(glyphs[0].1, scale) {
+    let line_glyphs = glyphs
+        .iter()
+        .map(|(_, glyph)| (*glyph).clone())
+        .collect::<Vec<_>>();
+    let line_right = glyphs
+        .iter()
+        .map(|(index, _)| glyph_trailing_x(layout, text, *index, scale))
+        .fold(0.0, f32::max);
+    let (line_left, _) =
+        run_bounds_for_line(layout, &line_glyphs, scale).unwrap_or_else(|| {
+            let left = glyphs
+                .iter()
+                .map(|(_, glyph)| glyph_left_x(glyph, scale))
+                .fold(f32::INFINITY, f32::min);
+            (left, line_right)
+        });
+    if x <= line_left {
         return line_start;
+    }
+    if x >= line_right {
+        return line_end;
     }
     for (index, glyph) in glyphs {
         let start = glyph_left_x(glyph, scale);
@@ -395,8 +462,8 @@ mod tests {
     use super::*;
     use bevy::asset::AssetId;
     use bevy::image::Image;
-    use bevy::math::{IVec2, Vec2};
-    use bevy::text::{GlyphAtlasInfo, GlyphAtlasLocation};
+    use bevy::math::{IVec2, Rect, Vec2};
+    use bevy::text::{GlyphAtlasInfo, GlyphAtlasLocation, RunGeometry};
 
     #[test]
     fn text_x_for_byte_uses_glyph_edges_not_centers() {
@@ -457,6 +524,15 @@ mod tests {
     }
 
     #[test]
+    fn caret_uses_glyph_trailing_for_line_right_edge() {
+        let mut layout = layout_with_glyphs(&[(0, 1, 8.0, 8.0), (1, 1, 18.0, 6.0)]);
+        layout.run_geometry = vec![run_geometry(0.0, 0.0, 24.0, 20.0)];
+
+        assert_eq!(text_x_for_byte(&layout, "11", 0), 0.0);
+        assert_eq!(text_x_for_byte(&layout, "11", 2), 21.0);
+    }
+
+    #[test]
     fn caret_geometry_uses_next_line_when_byte_is_line_start() {
         let layout = TextLayoutInfo {
             scale_factor: 1.0,
@@ -500,6 +576,17 @@ mod tests {
                 .collect(),
             run_geometry: Vec::new(),
             size: Vec2::new(30.0, 16.0),
+        }
+    }
+
+    fn run_geometry(min_x: f32, min_y: f32, max_x: f32, max_y: f32) -> RunGeometry {
+        RunGeometry {
+            span_index: 0,
+            bounds: Rect::new(min_x, min_y, max_x, max_y),
+            strikethrough_y: 0.0,
+            strikethrough_thickness: 0.0,
+            underline_y: 0.0,
+            underline_thickness: 0.0,
         }
     }
 

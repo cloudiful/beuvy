@@ -26,36 +26,41 @@ pub(crate) fn input_click(
     };
 
     set_input_focus(&mut input_focus, event.entity);
-    if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
-        let now = time.elapsed_secs_f64();
-        let is_chained_click = now - click_state.last_click_time <= 0.5;
-        click_state.click_count = if is_chained_click {
-            click_state.click_count.saturating_add(1).min(3)
-        } else {
-            1
-        };
-        click_state.last_click_time = now;
+    let Some(text_entity) = field.text_entity else {
+        return;
+    };
+    let Ok((layout, computed, transform)) = text_nodes.get(text_entity) else {
+        return;
+    };
 
-        let logical_rect = node_logical_rect(computed, transform);
-        let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
-        let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
-        let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let byte = if field.is_multiline() {
-            text_byte_for_point(layout, &display_text.text, local_x, local_y)
-        } else {
-            text_byte_for_x(layout, &display_text.text, local_x)
-        };
-        match click_state.click_count {
-            1 => field.edit_state.set_caret(byte, shift_pressed(&keys)),
-            2 => {
-                field.edit_state.select_word_at(byte);
-            }
-            _ => {
-                field.edit_state.select_all();
-            }
+    let now = time.elapsed_secs_f64();
+    let is_chained_click = now - click_state.last_click_time <= 0.5;
+    click_state.click_count = if is_chained_click {
+        click_state.click_count.saturating_add(1).min(3)
+    } else {
+        1
+    };
+    click_state.last_click_time = now;
+
+    let logical_rect = node_logical_rect(computed, transform);
+    let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
+    let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
+    let display_text = field.edit_state.display_text_string(&field.placeholder);
+    let byte = if field.is_multiline() {
+        text_byte_for_point(layout, &display_text.text, local_x, local_y)
+    } else {
+        text_byte_for_x(layout, &display_text.text, local_x)
+    };
+    match click_state.click_count {
+        1 => field.edit_state.set_caret(byte, shift_pressed(&keys)),
+        2 => {
+            field.edit_state.select_word_at(byte);
         }
-        keep_caret_visible(&mut field, &time);
+        _ => {
+            field.edit_state.select_all();
+        }
     }
+    keep_caret_visible(&mut field, &time);
     event.propagate(false);
 }
 
@@ -70,20 +75,25 @@ pub(crate) fn input_drag_start(
         return;
     };
     set_input_focus(&mut input_focus, event.entity);
-    if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
-        let logical_rect = node_logical_rect(computed, transform);
-        let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
-        let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
-        let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let byte = if field.is_multiline() {
-            text_byte_for_point(layout, &display_text.text, local_x, local_y)
-        } else {
-            text_byte_for_x(layout, &display_text.text, local_x)
-        };
-        field.edit_state.set_caret(byte, false);
-        field.preferred_caret_x = Some(local_x);
-        keep_caret_visible(&mut field, &time);
-    }
+    let Some(text_entity) = field.text_entity else {
+        return;
+    };
+    let Ok((layout, computed, transform)) = text_nodes.get(text_entity) else {
+        return;
+    };
+
+    let logical_rect = node_logical_rect(computed, transform);
+    let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
+    let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
+    let display_text = field.edit_state.display_text_string(&field.placeholder);
+    let byte = if field.is_multiline() {
+        text_byte_for_point(layout, &display_text.text, local_x, local_y)
+    } else {
+        text_byte_for_x(layout, &display_text.text, local_x)
+    };
+    field.edit_state.set_caret(byte, false);
+    field.preferred_caret_x = Some(local_x);
+    keep_caret_visible(&mut field, &time);
     event.propagate(false);
 }
 
@@ -96,20 +106,25 @@ pub(crate) fn input_drag(
     let Ok(mut field) = fields.get_mut(event.entity) else {
         return;
     };
-    if let Ok((layout, computed, transform)) = text_nodes.get(field.text_entity) {
-        let logical_rect = node_logical_rect(computed, transform);
-        let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
-        let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
-        let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let byte = if field.is_multiline() {
-            text_byte_for_point(layout, &display_text.text, local_x, local_y)
-        } else {
-            text_byte_for_x(layout, &display_text.text, local_x)
-        };
-        field.edit_state.set_caret(byte, true);
-        field.preferred_caret_x = Some(local_x);
-        keep_caret_visible(&mut field, &time);
-    }
+    let Some(text_entity) = field.text_entity else {
+        return;
+    };
+    let Ok((layout, computed, transform)) = text_nodes.get(text_entity) else {
+        return;
+    };
+
+    let logical_rect = node_logical_rect(computed, transform);
+    let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
+    let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
+    let display_text = field.edit_state.display_text_string(&field.placeholder);
+    let byte = if field.is_multiline() {
+        text_byte_for_point(layout, &display_text.text, local_x, local_y)
+    } else {
+        text_byte_for_x(layout, &display_text.text, local_x)
+    };
+    field.edit_state.set_caret(byte, true);
+    field.preferred_caret_x = Some(local_x);
+    keep_caret_visible(&mut field, &time);
     event.propagate(false);
 }
 
