@@ -15,7 +15,8 @@ use bevy::prelude::*;
 use bevy::ui::UiSystems;
 use bevy::window::Ime;
 
-pub(crate) use clipboard::{InputClipboard, UndoStack};
+pub(crate) use clipboard::InputClipboard;
+pub use clipboard::UndoStack;
 pub use edit::{PreeditState, SelectionDirection, TextEditState};
 pub(crate) use text_engine::InputTextEngine;
 
@@ -45,7 +46,6 @@ pub struct AddInput {
     pub input_type: InputType,
     pub value: String,
     pub checked: bool,
-    pub input_value: Option<String>,
     pub placeholder: String,
     pub size_chars: Option<usize>,
     pub rows: Option<usize>,
@@ -64,7 +64,6 @@ impl Default for AddInput {
             input_type: InputType::Text,
             value: String::new(),
             checked: false,
-            input_value: None,
             placeholder: String::new(),
             size_chars: None,
             rows: None,
@@ -83,13 +82,14 @@ pub struct InputField {
     pub name: String,
     pub input_type: InputType,
     pub checked: bool,
-    pub input_value: Option<String>,
     pub placeholder: String,
     pub viewport_entity: Option<Entity>,
     pub text_entity: Option<Entity>,
     pub selection_entity: Option<Entity>,
     pub caret_entity: Option<Entity>,
     pub edit_state: TextEditState,
+    pub initial_value: String,
+    pub initial_checked: bool,
     pub min: Option<f32>,
     pub max: Option<f32>,
     pub step: Option<f32>,
@@ -102,7 +102,7 @@ impl InputField {
     pub fn submitted_value(&self) -> String {
         match self.input_type {
             InputType::Checkbox => self.checked.to_string(),
-            InputType::Radio => self.input_value.clone().unwrap_or_default(),
+            InputType::Radio => self.value().to_string(),
             _ => self.value().to_string(),
         }
     }
@@ -147,7 +147,14 @@ impl InputField {
     pub fn is_checkable(&self) -> bool {
         matches!(self.input_type, InputType::Checkbox | InputType::Radio)
     }
+    pub fn is_toggle(&self) -> bool {
+        matches!(self.input_type, InputType::Checkbox | InputType::Radio)
+    }
 
+    pub fn reset(&mut self) {
+        self.edit_state.set_text(self.initial_value.clone());
+        self.checked = self.initial_checked;
+    }
     pub fn step_by(&mut self, direction: f32) -> Option<String> {
         if !matches!(self.input_type, InputType::Number | InputType::Range) || direction == 0.0 {
             return None;
@@ -231,16 +238,30 @@ pub(crate) struct RangeFill;
 #[derive(Component, Debug, Clone, Copy)]
 pub(crate) struct RangeThumb;
 
+#[derive(Component, Debug, Clone, Copy)]
+pub(crate) struct ToggleIndicator;
+
+#[derive(Component, Debug, Clone, Copy)]
+pub(crate) struct ToggleFill;
+
 #[derive(Message, Debug, Clone)]
 pub struct InputValueChangedMessage {
     pub entity: Entity,
     pub name: String,
     pub value: String,
+    pub runtime_value: InputRuntimeValue,
+}
+
+#[derive(Message, Debug, Clone)]
+pub struct InputSubmitMessage {
+    pub entity: Entity,
+    pub name: String,
 }
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<InputValueChangedMessage>()
+            .add_message::<InputSubmitMessage>()
             .add_message::<KeyboardInput>()
             .add_message::<Ime>()
             .add_message::<Pointer<Click>>()
@@ -252,6 +273,8 @@ impl Plugin for InputPlugin {
                 Update,
                 (
                     build::add_input.in_set(InputSet::Build),
+                    build::sync_toggle_visuals,
+                    state::sync_radio_groups,
                     state::clear_input_focus_on_foreign_click,
                     state::sync_input_focus_visuals,
                     range::sync_range_visuals,
@@ -295,7 +318,8 @@ pub(crate) fn push_value_changed(
     value_changed.write(InputValueChangedMessage {
         entity,
         name: field.name.clone(),
-        value: field.submitted_value(),
+        value: field.value().to_string(),
+        runtime_value: input_runtime_value(field),
     });
 }
 
@@ -305,11 +329,37 @@ pub(crate) fn push_range_value_changed(
     name: &str,
     value: String,
 ) {
+    let runtime_value = value
+        .parse::<f64>()
+        .map(InputRuntimeValue::Number)
+        .unwrap_or_else(|_| InputRuntimeValue::Text(value.clone()));
     value_changed.write(InputValueChangedMessage {
         entity,
         name: name.to_string(),
         value,
+        runtime_value,
     });
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputRuntimeValue {
+    Text(String),
+    Bool(bool),
+    Number(f64),
+}
+
+pub(crate) fn input_runtime_value(field: &InputField) -> InputRuntimeValue {
+    match field.input_type {
+        InputType::Checkbox => InputRuntimeValue::Bool(field.checked),
+        InputType::Radio => InputRuntimeValue::Text(field.value().to_string()),
+        InputType::Number | InputType::Range => field
+            .numeric_value()
+            .map(|value| InputRuntimeValue::Number(value as f64))
+            .unwrap_or_else(|| InputRuntimeValue::Text(field.value().to_string())),
+        InputType::Text | InputType::Textarea | InputType::Password => {
+            InputRuntimeValue::Text(field.value().to_string())
+        }
+    }
 }
 
 fn is_printable_char(chr: char) -> bool {

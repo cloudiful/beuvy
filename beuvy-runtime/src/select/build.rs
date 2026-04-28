@@ -80,6 +80,7 @@ pub(crate) fn add_select(mut commands: Commands, query: Query<(Entity, &AddSelec
                     Select {
                         name: add_select.name.clone(),
                         value: add_select.value.clone(),
+                        initial_value: add_select.value.clone(),
                         options,
                         panel,
                         trigger,

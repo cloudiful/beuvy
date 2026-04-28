@@ -49,6 +49,7 @@ pub(super) fn add_button(mut commands: Commands, query: Query<(Entity, &AddButto
                 entity.insert((
                     Button {
                         name: add_button.name.clone(),
+                        button_type: add_button.button_type,
                     },
                     Interaction::None,
                     button_node,

@@ -1,20 +1,19 @@
 use super::edit::TextEditState;
 use super::range::{spawn_range_fill, spawn_range_thumb, spawn_range_track};
 use super::text::{
-    apply_check_input_shape, default_check_indicator_node, default_check_input_node, default_input_node,
+    apply_check_input_shape, default_input_node,
     default_textarea_node, input_text_bundle, input_text_marker, input_text_node,
 };
 use super::{
-    AddInput, DisabledInput, InputCaret, InputCheckRoot, InputClickState, InputField,
-    InputIndicator, InputScrollOffset, InputSelection, InputType, InputViewport, RangeState,
-    UndoStack,
+    AddInput, DisabledInput, InputCaret, InputClickState, InputField, InputScrollOffset,
+    InputSelection, InputType, InputViewport, RangeState, ToggleFill, ToggleIndicator, UndoStack,
 };
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
 use crate::style::{
-    apply_utility_patch, checkbox_border_color, checkbox_indicator_color,
-    input_selection_color, resolve_classes_with_fallback, root_visual_styles_from_patch,
+    apply_utility_patch, checkbox_border_color, input_selection_color,
+    resolve_classes_with_fallback, root_visual_styles_from_patch,
 };
 use crate::text::AddText;
 use bevy::picking::Pickable;
@@ -29,16 +28,12 @@ const DEFAULT_RADIO_CLASS: &str = "radio-root";
 pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)>) {
     for (entity, add_input) in query {
         let add_input = add_input.clone();
-        let default_root_class = if add_input.input_type == InputType::Range {
-            DEFAULT_RANGE_CLASS
-        } else if add_input.input_type == InputType::Checkbox {
-            DEFAULT_CHECKBOX_CLASS
-        } else if add_input.input_type == InputType::Radio {
-            DEFAULT_RADIO_CLASS
-        } else if add_input.input_type == InputType::Textarea {
-            DEFAULT_TEXTAREA_CLASS
-        } else {
-            DEFAULT_INPUT_CLASS
+        let default_root_class = match add_input.input_type {
+            InputType::Range => DEFAULT_RANGE_CLASS,
+            InputType::Textarea => DEFAULT_TEXTAREA_CLASS,
+            InputType::Checkbox => DEFAULT_CHECKBOX_CLASS,
+            InputType::Radio => DEFAULT_RADIO_CLASS,
+            _ => DEFAULT_INPUT_CLASS,
         };
         let root_patch = resolve_classes_with_fallback(
             default_root_class,
@@ -46,20 +41,25 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
             "input root",
         );
         let root_styles = root_visual_styles_from_patch(&root_patch);
-        let mut root_node = if add_input.input_type == InputType::Range {
-            Node {
+        let mut root_node = match add_input.input_type {
+            InputType::Range => Node {
                 min_width: Val::Px(120.0),
                 flex_grow: 1.0,
                 padding: UiRect::ZERO,
                 border: UiRect::ZERO,
                 ..default()
-            }
-        } else if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
-            default_check_input_node()
-        } else if add_input.input_type == InputType::Textarea {
-            default_textarea_node(add_input.size_chars, add_input.rows)
-        } else {
-            default_input_node(add_input.size_chars)
+            },
+            InputType::Textarea => default_textarea_node(add_input.size_chars, add_input.rows),
+            InputType::Checkbox | InputType::Radio => Node {
+                width: Val::Px(20.0),
+                height: Val::Px(20.0),
+                min_width: Val::Px(20.0),
+                min_height: Val::Px(20.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            _ => default_input_node(add_input.size_chars),
         };
         if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
             apply_check_input_shape(&mut root_node, add_input.input_type);
@@ -99,13 +99,14 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
                         checked: add_input.checked,
-                        input_value: add_input.input_value.clone(),
                         placeholder: add_input.placeholder.clone(),
                         viewport_entity: None,
                         text_entity: None,
                         selection_entity: None,
                         caret_entity: None,
-                        edit_state: TextEditState::with_text(normalized_value),
+                        edit_state: TextEditState::with_text(normalized_value.clone()),
+                        initial_value: normalized_value.clone(),
+                        initial_checked: add_input.checked,
                         min: add_input.min,
                         max: add_input.max,
                         step: add_input.step,
@@ -140,20 +141,38 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     entity_commands.world_scope(|world| {
                         let indicator = world
                             .spawn((
-                                InputIndicator,
-                                InputCheckRoot,
+                                ToggleIndicator,
                                 Pickable::IGNORE,
-                                Visibility::Hidden,
-                                default_check_indicator_node(add_input.input_type),
-                                BackgroundColor(checkbox_indicator_color()),
-                                BorderColor::all(checkbox_indicator_color()),
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                BackgroundColor(Color::NONE),
                             ))
                             .id();
+                        let fill_size = if add_input.input_type == InputType::Radio {
+                            8.0
+                        } else {
+                            10.0
+                        };
+                        let fill = world
+                            .spawn((
+                                ToggleFill,
+                                Pickable::IGNORE,
+                                Node {
+                                    width: Val::Px(fill_size),
+                                    height: Val::Px(fill_size),
+                                    ..default()
+                                },
+                                Visibility::Hidden,
+                                BackgroundColor(crate::style::text_primary_color()),
+                            ))
+                            .id();
+                        world.entity_mut(indicator).add_child(fill);
                         world.entity_mut(input_entity).add_child(indicator);
-                        let mut input = world
-                            .get_mut::<InputField>(input_entity)
-                            .expect("input just inserted");
-                        input.viewport_entity = Some(indicator);
                     });
                 } else {
                     let text_patch = resolve_classes_with_fallback(
@@ -261,5 +280,33 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     .remove::<AddInput>()
                     .remove::<UiBuildPending>();
             });
+    }
+}
+
+pub(super) fn sync_toggle_visuals(
+    fields: Query<(&InputField, &Children), Or<(Changed<InputField>, Added<InputField>)>>,
+    indicators: Query<&Children, With<ToggleIndicator>>,
+    mut fills: Query<(&mut Visibility, &mut Node, &mut BackgroundColor), With<ToggleFill>>,
+) {
+    for (field, children) in &fields {
+        if !field.is_toggle() {
+            continue;
+        }
+        for child in children.iter() {
+            let Ok(fill_children) = indicators.get(child) else {
+                continue;
+            };
+            for fill in fill_children.iter() {
+                let Ok((mut visibility, _node, mut color)) = fills.get_mut(fill) else {
+                    continue;
+                };
+                *visibility = if field.checked {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                };
+                color.0 = crate::style::text_primary_color();
+            }
+        }
     }
 }

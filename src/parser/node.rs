@@ -3,7 +3,6 @@ use super::*;
 use crate::basic::hr::parse_declarative_hr_node;
 use crate::basic::image::parse_declarative_image_node;
 use crate::basic::input::parse_declarative_textarea_node;
-use crate::basic::label::parse_declarative_label_node;
 use crate::basic::link::parse_declarative_link_node;
 
 pub(super) fn parse_node(
@@ -27,7 +26,7 @@ pub(super) fn parse_node(
             reject_style_attrs_except(node, &["style"])?;
             Ok(DeclarativeUiNode::Container {
                 node_id: String::new(),
-                semantic_tag: None,
+                kind: DeclarativeContainerKind::Generic,
                 class: attr(node, "class").unwrap_or_default().to_string(),
                 class_bindings: parse_class_bindings(node, state_specs)?,
                 node: parse_node_style(node)?,
@@ -35,6 +34,9 @@ pub(super) fn parse_node(
                 outlet: Some(required_attr(node, "name")?.to_string()),
                 conditional: parse_conditional(node, state_specs)?,
                 show_expr: parse_show_attr(node, state_specs)?,
+                disabled: false,
+                disabled_expr: None,
+                label_for: None,
                 visual_style: parse_visual_style(node)?,
                 state_visual_styles: parse_state_visual_styles(node)?,
                 ref_binding: parse_ref_binding(node)?,
@@ -42,24 +44,8 @@ pub(super) fn parse_node(
                 children: parse_child_nodes(node, state_specs)?,
             })
         }
-        tag if is_block_tag(tag) => parse_declarative_div_node(node, state_specs),
-        tag if is_text_tag(tag) => {
-            reject_style_attrs(node)?;
-            let content = parse_text_content(node)?;
-            let style = parse_text_style(node, tag)?;
-            Ok(DeclarativeUiNode::Text {
-                node_id: String::new(),
-                semantic_tag: text_tag_for(tag),
-                class: attr(node, "class").unwrap_or_default().to_string(),
-                class_bindings: parse_class_bindings(node, state_specs)?,
-                content,
-                conditional: parse_conditional(node, state_specs)?,
-                show_expr: parse_show_attr(node, state_specs)?,
-                ref_binding: parse_ref_binding(node)?,
-                style,
-            })
-        }
-        "label" => parse_declarative_label_node(node, state_specs),
+        tag if is_block_tag(tag) => parse_declarative_container_node(node, state_specs),
+        tag if is_text_tag(tag) => parse_declarative_text_node(node, tag, state_specs),
         "button" => parse_declarative_button_node(node, state_specs),
         "img" => parse_declarative_image_node(node, state_specs),
         "a" => parse_declarative_link_node(node, state_specs),
@@ -124,7 +110,7 @@ fn parse_raw_text_child(
 
     Ok(Some(DeclarativeUiNode::Text {
         node_id: String::new(),
-        semantic_tag: Some(DeclarativeTextTag::Span),
+        kind: DeclarativeTextKind::Generic,
         class: String::new(),
         class_bindings: Vec::new(),
         content,
@@ -392,6 +378,7 @@ pub(super) fn is_block_tag(tag: &str) -> bool {
             | "article"
             | "form"
             | "fieldset"
+            | "label"
             | "ul"
             | "ol"
             | "li"
@@ -401,37 +388,9 @@ pub(super) fn is_block_tag(tag: &str) -> bool {
 pub(super) fn is_text_tag(tag: &str) -> bool {
     matches!(
         tag,
-        "span"
-            | "p"
-            | "legend"
-            | "small"
-            | "strong"
-            | "em"
-            | "h1"
-            | "h2"
-            | "h3"
-            | "h4"
-            | "h5"
-            | "h6"
+        "span" | "p" | "legend" | "small" | "strong" | "em" | "h1" | "h2" | "h3" | "h4"
+            | "h5" | "h6"
     )
-}
-
-fn text_tag_for(tag: &str) -> Option<DeclarativeTextTag> {
-    Some(match tag {
-        "span" => DeclarativeTextTag::Span,
-        "p" => DeclarativeTextTag::P,
-        "legend" => DeclarativeTextTag::Legend,
-        "small" => DeclarativeTextTag::Small,
-        "strong" => DeclarativeTextTag::Strong,
-        "em" => DeclarativeTextTag::Em,
-        "h1" => DeclarativeTextTag::H1,
-        "h2" => DeclarativeTextTag::H2,
-        "h3" => DeclarativeTextTag::H3,
-        "h4" => DeclarativeTextTag::H4,
-        "h5" => DeclarativeTextTag::H5,
-        "h6" => DeclarativeTextTag::H6,
-        _ => return None,
-    })
 }
 
 pub(super) fn default_text_size_for_tag(tag: &str) -> f32 {
@@ -440,10 +399,10 @@ pub(super) fn default_text_size_for_tag(tag: &str) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{DeclarativeContainerTag, DeclarativeTextTag};
     use crate::{
-        DeclarativeTextKeySource, DeclarativeUiNode, DeclarativeUiTextContent,
-        DeclarativeUiTextSegment, parse_declarative_ui_asset,
+        DeclarativeContainerKind, DeclarativeTextKeySource, DeclarativeTextKind,
+        DeclarativeUiNode, DeclarativeUiTextContent, DeclarativeUiTextSegment,
+        parse_declarative_ui_asset,
     };
 
     #[test]
@@ -595,7 +554,7 @@ mod tests {
     }
 
     #[test]
-    fn semantic_tags_parse_for_content_nodes() {
+    fn semantic_kinds_parse_for_content_nodes() {
         let asset = parse_declarative_ui_asset(
             r#"
             <template>
@@ -612,25 +571,25 @@ mod tests {
         .expect("content semantic nodes should parse");
 
         let DeclarativeUiNode::Container {
-            semantic_tag,
+            kind,
             children,
             ..
         } = asset.root
         else {
             panic!("expected fieldset container");
         };
-        assert_eq!(semantic_tag, Some(DeclarativeContainerTag::Fieldset));
+        assert_eq!(kind, DeclarativeContainerKind::Fieldset);
         assert!(matches!(
             children.first(),
             Some(DeclarativeUiNode::Text {
-                semantic_tag: Some(DeclarativeTextTag::Legend),
+                kind: DeclarativeTextKind::Legend,
                 ..
             })
         ));
         assert!(children.iter().any(|child| matches!(
             child,
             DeclarativeUiNode::Container {
-                semantic_tag: Some(DeclarativeContainerTag::Ul),
+                kind: DeclarativeContainerKind::UnorderedList,
                 ..
             }
         )));

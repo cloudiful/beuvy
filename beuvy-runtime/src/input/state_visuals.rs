@@ -1,7 +1,7 @@
 use crate::focus::UiFocused;
 use crate::input::{
-    DisabledInput, InputCaret, InputCursorPosition, InputField, InputIndicator, InputScrollOffset,
-    InputSelection, InputSelectionSegment, InputTextEngine, InputType, SelectionSegmentPool,
+    DisabledInput, InputCaret, InputCursorPosition, InputField, InputScrollOffset, InputSelection,
+    InputSelectionSegment, InputTextEngine, InputType, SelectionSegmentPool,
 };
 use crate::style::{input_caret_width, input_selection_color};
 use bevy::math::Rect;
@@ -77,21 +77,11 @@ pub(crate) fn sync_input_edit_visuals(
         Query<(&mut Node, &mut Visibility), With<InputSelection>>,
         Query<(&mut Node, &mut Visibility), With<InputCaret>>,
         Query<(&ChildOf, &mut Node, &mut Visibility), With<InputSelectionSegment>>,
-        Query<&mut Visibility, With<InputIndicator>>,
     )>,
     mut segment_pool: ResMut<SelectionSegmentPool>,
 ) {
     for (entity, field, disabled, focused) in &fields {
         if matches!(field.input_type, InputType::Checkbox | InputType::Radio) {
-            if let Some(indicator_entity) = field.viewport_entity
-                && let Ok(mut visibility) = visuals.p4().get_mut(indicator_entity)
-            {
-                *visibility = if field.checked {
-                    Visibility::Visible
-                } else {
-                    Visibility::Hidden
-                };
-            }
             if focused && !disabled {
                 if let Ok(mut entity_commands) = commands.get_entity(entity) {
                     entity_commands.try_insert(InputCursorPosition { x: 9.0, y: 9.0 });

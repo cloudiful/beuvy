@@ -1,8 +1,9 @@
 use crate::ast::*;
 use crate::basic::button::parse_declarative_button_node;
-use crate::basic::div::parse_declarative_div_node;
+use crate::basic::container::parse_declarative_container_node;
 use crate::basic::input::parse_declarative_input_node;
 use crate::basic::select::parse_declarative_select_node;
+use crate::basic::text::parse_declarative_text_node;
 use crate::error::DeclarativeUiAssetLoadError;
 use beuvy_runtime::utility::{
     UtilityAlignContent, UtilityAlignItems, UtilityAlignSelf, UtilityDisplay, UtilityFlexDirection,

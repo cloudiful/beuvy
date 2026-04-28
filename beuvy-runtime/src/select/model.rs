@@ -22,6 +22,7 @@ pub struct SelectOptionState {
 pub struct Select {
     pub name: String,
     pub value: String,
+    pub initial_value: String,
     pub options: Vec<SelectOptionState>,
     pub panel: Entity,
     pub trigger: Entity,

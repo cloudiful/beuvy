@@ -11,11 +11,11 @@
 }
 
 @utility checkbox-root {
-    @apply flex items-center justify-center w-[18px] h-[18px] min-w-[18px] min-h-[18px] border-[var(--border-regular)] overflow-visible;
+    @apply flex items-center justify-center rounded-ui border-[var(--border-regular)] border-panel-subtle-border bg-white focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
 }
 
 @utility radio-root {
-    @apply flex items-center justify-center w-[18px] h-[18px] min-w-[18px] min-h-[18px] rounded-pill border-[var(--border-regular)] overflow-visible;
+    @apply flex items-center justify-center rounded-pill border-[var(--border-regular)] border-panel-subtle-border bg-white focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
 }
 
 @utility input-text {

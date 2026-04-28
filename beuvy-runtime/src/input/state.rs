@@ -73,7 +73,27 @@ fn can_insert_char(field: &InputField, chr: char) -> bool {
     match field.input_type {
         InputType::Text | InputType::Textarea | InputType::Password => is_printable_char(chr),
         InputType::Number => can_insert_number_char(chr, field.value(), field.min),
-        InputType::Range | InputType::Checkbox | InputType::Radio => false,
+        InputType::Range => false,
+        InputType::Checkbox | InputType::Radio => false,
+    }
+}
+
+pub(crate) fn sync_radio_groups(
+    changed: Query<(Entity, &InputField), Changed<InputField>>,
+    mut radios: Query<(Entity, &mut InputField)>,
+) {
+    for (entity, field) in &changed {
+        if field.input_type != InputType::Radio || !field.checked {
+            continue;
+        }
+        for (other_entity, mut other) in &mut radios {
+            if other_entity == entity || other.input_type != InputType::Radio {
+                continue;
+            }
+            if other.name == field.name && other.checked {
+                other.checked = false;
+            }
+        }
     }
 }
 

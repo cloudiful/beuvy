@@ -7,12 +7,23 @@ use beuvy_runtime::input::{AddInput, InputType};
 use beuvy_runtime::{AddSelect, AddSelectOption};
 use bevy::prelude::default;
 
+impl From<DeclarativeButtonType> for beuvy_runtime::button::ButtonType {
+    fn from(value: DeclarativeButtonType) -> Self {
+        match value {
+            DeclarativeButtonType::Button => Self::Button,
+            DeclarativeButtonType::Submit => Self::Submit,
+            DeclarativeButtonType::Reset => Self::Reset,
+        }
+    }
+}
+
 pub(crate) fn build_declarative_button(
     node: &DeclarativeUiNode,
     context: &DeclarativeUiBuildContext,
 ) -> AddButton {
     let DeclarativeUiNode::Button {
         name,
+        button_type,
         class,
         content,
         disabled,
@@ -27,6 +38,7 @@ pub(crate) fn build_declarative_button(
     let (text, localized_text, localized_text_format) = button_text_content(content, context);
     AddButton {
         name: name.clone(),
+        button_type: (*button_type).into(),
         text,
         localized_text,
         localized_text_format,
@@ -52,10 +64,10 @@ pub(crate) fn build_declarative_input(
         class,
         input_type,
         value,
-        value_binding,
-        model_binding,
         checked,
         checked_binding,
+        value_binding,
+        model_binding,
         placeholder,
         size_chars,
         rows,
@@ -79,14 +91,14 @@ pub(crate) fn build_declarative_input(
             model_binding.as_deref().or(value_binding.as_deref()),
             context,
         ),
-        checked: resolved_checked_value(
+        checked: resolved_input_checked(
             *input_type,
             *checked,
-            checked_binding.as_deref().or(model_binding.as_deref()),
+            checked_binding.as_deref(),
             value,
+            model_binding.as_deref().or(value_binding.as_deref()),
             context,
         ),
-        input_value: matches!(input_type, InputType::Radio).then(|| value.clone()),
         placeholder: placeholder.clone(),
         size_chars: *size_chars,
         rows: *rows,
@@ -102,31 +114,22 @@ pub(crate) fn build_declarative_input(
     }
 }
 
-fn resolved_checked_value(
-    input_type: InputType,
-    checked: bool,
-    checked_binding: Option<&str>,
-    input_value: &str,
-    context: &DeclarativeUiBuildContext,
-) -> bool {
-    match input_type {
-        InputType::Checkbox => checked_binding
-            .and_then(|binding| context.bool(binding))
-            .unwrap_or(checked),
-        InputType::Radio => checked_binding
-            .and_then(|binding| context.string(binding))
-            .map(|value| value == input_value)
-            .unwrap_or(checked),
-        _ => checked,
-    }
-}
-
 fn resolved_input_value(
     input_type: InputType,
     value: &str,
     value_binding: Option<&str>,
     context: &DeclarativeUiBuildContext,
 ) -> String {
+    if matches!(input_type, InputType::Checkbox) {
+        return if value.is_empty() {
+            "true".to_string()
+        } else {
+            value.to_string()
+        };
+    }
+    if matches!(input_type, InputType::Radio) {
+        return value.to_string();
+    }
     if matches!(input_type, InputType::Number | InputType::Range) {
         return value_binding
             .and_then(|binding| {
@@ -141,6 +144,32 @@ fn resolved_input_value(
     value_binding
         .and_then(|binding| context.text(binding).map(str::to_string))
         .unwrap_or_else(|| value.to_string())
+}
+
+fn resolved_input_checked(
+    input_type: InputType,
+    checked: bool,
+    checked_binding: Option<&str>,
+    value: &str,
+    value_binding: Option<&str>,
+    context: &DeclarativeUiBuildContext,
+) -> bool {
+    if let Some(binding) = checked_binding
+        && let Some(value) = context.bool(binding)
+    {
+        return value;
+    }
+
+    match input_type {
+        InputType::Checkbox => value_binding
+            .and_then(|binding| context.bool(binding))
+            .unwrap_or(checked),
+        InputType::Radio => value_binding
+            .and_then(|binding| context.text(binding))
+            .map(|bound| bound == value)
+            .unwrap_or(checked),
+        _ => checked,
+    }
 }
 
 pub(crate) fn build_declarative_select(

@@ -39,7 +39,7 @@ pub(crate) fn reject_legacy_event_attrs(
         let name = attribute.name();
         if matches!(
             name,
-            "onclick" | "oninput" | "onchange" | "onscroll" | "onwheel"
+            "onclick" | "oninput" | "onchange" | "onscroll" | "onwheel" | "onsubmit" | "onreset"
         ) || name.starts_with("on:")
             || name.starts_with("on-")
         {
@@ -47,7 +47,7 @@ pub(crate) fn reject_legacy_event_attrs(
                 node,
                 name,
                 attribute.value(),
-                "legacy event attributes are not supported; use @click/@input/@change/@scroll/@wheel",
+                "legacy event attributes are not supported; use @click/@input/@change/@scroll/@wheel/@submit/@reset",
             ));
         }
     }
@@ -65,6 +65,8 @@ pub(super) fn parse_event_kind(
         "change" => Ok(DeclarativeEventKind::Change),
         "scroll" => Ok(DeclarativeEventKind::Scroll),
         "wheel" => Ok(DeclarativeEventKind::Wheel),
+        "submit" => Ok(DeclarativeEventKind::Submit),
+        "reset" => Ok(DeclarativeEventKind::Reset),
         _ => Err(attr_error(node, name, raw, "unknown event kind")),
     }
 }

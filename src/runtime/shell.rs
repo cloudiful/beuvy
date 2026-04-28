@@ -2,11 +2,12 @@ use super::bindings::{apply_common_bindings_to_entity, conditional_matches};
 use super::context::DeclarativeUiBuildContext;
 use super::spawn::{spawn_declarative_child_nodes_in_world, sync_conditional_subtree_component};
 use super::state::{
-    DeclarativeClassBindings, DeclarativeLocalState, DeclarativeNodeId,
+    DeclarativeClassBindings, DeclarativeContainerSemantic, DeclarativeExplicitDisabled,
+    DeclarativeFieldsetState, DeclarativeLocalState, DeclarativeNodeId,
     DeclarativeRootComputedLocals, DeclarativeRootViewModel, DeclarativeUiSlot, DeclarativeUiSlots,
 };
 use super::style::{apply_node_style, insert_runtime_visuals};
-use crate::ast::{DeclarativeUiAsset, DeclarativeUiNode};
+use crate::ast::{DeclarativeContainerKind, DeclarativeUiAsset, DeclarativeUiNode};
 use crate::value::UiValue;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -70,6 +71,7 @@ fn materialize_declarative_ui_shell_on_entity_inner(
 ) {
     match node {
         DeclarativeUiNode::Container {
+            kind,
             class,
             class_bindings,
             node: style_node,
@@ -77,6 +79,9 @@ fn materialize_declarative_ui_shell_on_entity_inner(
             outlet,
             conditional,
             show_expr,
+            disabled,
+            disabled_expr,
+            label_for,
             visual_style,
             state_visual_styles,
             ref_binding,
@@ -88,6 +93,17 @@ fn materialize_declarative_ui_shell_on_entity_inner(
                 return;
             }
             entity.insert(DeclarativeNodeId(node.node_id().to_string()));
+            entity.insert(DeclarativeContainerSemantic {
+                kind: *kind,
+                label_for: label_for.clone(),
+            });
+            entity.insert(DeclarativeExplicitDisabled(*disabled));
+            if matches!(kind, DeclarativeContainerKind::Fieldset) {
+                entity.insert(DeclarativeFieldsetState {
+                    disabled: *disabled,
+                    disabled_expr: disabled_expr.clone(),
+                });
+            }
             entity.insert(DeclarativeRootViewModel(context.root().clone()));
             entity.insert((
                 apply_node_style(Node::default(), style_node),

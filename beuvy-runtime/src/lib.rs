@@ -40,9 +40,9 @@ pub mod text;
 mod theme_config;
 pub mod utility;
 
-pub use button::AddButton;
+pub use button::{AddButton, ButtonType};
+pub use input::{AddInput, InputRuntimeValue, InputSubmitMessage};
 pub use image::AddImage;
-pub use input::AddInput;
 pub use interaction_style as state_style;
 pub use link::{AddLink, LinkActivatedMessage};
 pub use scroll::{MouseWheelScroll, scroll_container_node};

@@ -8,10 +8,11 @@ use super::controls::{
 };
 use super::state::{
     DeclarativeClassBindings, DeclarativeConditionalChainState, DeclarativeConditionalSubtree,
-    DeclarativeImageAltBinding, DeclarativeImageSrcBinding, DeclarativeLabelForTarget,
-    DeclarativeLabelNode, DeclarativeLinkHrefBinding, DeclarativeLocalState, DeclarativeNodeId,
-    DeclarativeOnClickAssignment, DeclarativeRootComputedLocals, DeclarativeRootViewModel,
-    DeclarativeSelectTextBindings, DeclarativeUiSlot,
+    DeclarativeContainerSemantic, DeclarativeExplicitDisabled, DeclarativeFieldsetState,
+    DeclarativeImageAltBinding, DeclarativeImageSrcBinding, DeclarativeLinkHrefBinding,
+    DeclarativeLocalState, DeclarativeNodeId, DeclarativeOnClickAssignment,
+    DeclarativeRootComputedLocals, DeclarativeRootViewModel, DeclarativeSelectTextBindings,
+    DeclarativeUiSlot,
 };
 use super::style::{DeclarativeEntityInsert, apply_node_style, insert_runtime_visuals};
 use super::text::{build_add_text, content_has_dynamic_bindings};
@@ -310,13 +311,16 @@ fn build_spawned_node(
     match node {
         DeclarativeUiNode::Container {
             node_id,
-            semantic_tag,
+            kind,
             class,
             class_bindings,
             node,
             style_binding,
             outlet,
             show_expr,
+            disabled,
+            disabled_expr,
+            label_for,
             visual_style,
             state_visual_styles,
             ref_binding,
@@ -324,11 +328,22 @@ fn build_spawned_node(
             children,
             ..
         } => {
-            let style_node = merge_node_styles(default_container_node_style(*semantic_tag), node);
+            let style_node = merge_node_styles(default_container_node_style(*kind), node);
             entity.insert_component((
                 apply_node_style(Node::default(), &style_node),
                 Visibility::Visible,
             ));
+            entity.insert_component(DeclarativeContainerSemantic {
+                kind: *kind,
+                label_for: label_for.clone(),
+            });
+            entity.insert_component(DeclarativeExplicitDisabled(*disabled));
+            if matches!(kind, DeclarativeContainerKind::Fieldset) {
+                entity.insert_component(DeclarativeFieldsetState {
+                    disabled: *disabled,
+                    disabled_expr: disabled_expr.clone(),
+                });
+            }
             if outlet.is_some() {
                 entity.insert_component(DeclarativeUiSlot);
             }
@@ -355,7 +370,7 @@ fn build_spawned_node(
             );
         }
         DeclarativeUiNode::Text {
-            semantic_tag,
+            kind,
             class,
             class_bindings,
             content,
@@ -364,7 +379,7 @@ fn build_spawned_node(
             style,
             ..
         } => {
-            let style = merged_text_style(*semantic_tag, style.clone());
+            let style = merged_text_style(kind, style.clone());
             let (add_text, binding) = build_add_text(content, &style, context);
             entity.insert_component(add_text);
             insert_runtime_visuals(entity, &style.visual_style, &style.state_visual_styles);
@@ -449,7 +464,7 @@ fn build_spawned_node(
             state_visual_styles,
             ..
         } => {
-            let style = merged_text_style(Some(DeclarativeTextTag::Span), text_style.clone());
+            let style = merged_text_style(&DeclarativeTextKind::Generic, text_style.clone());
             let (text, _, _) = super::text::button_text_content(content, context);
             entity.insert_component(AddLink {
                 name: text.clone(),
@@ -523,51 +538,6 @@ fn build_spawned_node(
             );
             insert_class_bindings(entity, class, class_bindings);
         }
-        DeclarativeUiNode::Label {
-            class,
-            class_bindings,
-            content,
-            show_expr,
-            ref_binding,
-            style,
-            for_target,
-            children,
-            ..
-        } => {
-            let (add_text, binding) = build_add_text(content, style, context);
-            entity.insert_component((
-                add_text,
-                apply_node_style(Node::default(), &DeclarativeNodeStyle::default()),
-            ));
-            entity.insert_component(DeclarativeLabelNode);
-            insert_runtime_visuals(entity, &style.visual_style, &style.state_visual_styles);
-            if let Some(binding) = binding {
-                entity.insert_component(binding);
-            }
-            if let Some(for_target) = for_target {
-                entity.insert_component(DeclarativeLabelForTarget(for_target.clone()));
-            }
-            apply_common_bindings_to_entity(
-                entity,
-                show_expr.as_ref(),
-                None,
-                None,
-                None,
-                None,
-                ref_binding.as_ref(),
-                None,
-                &[],
-                context,
-            );
-            insert_class_bindings(entity, class, class_bindings);
-            insert_conditional_subtree_component(
-                entity,
-                node.node_id(),
-                children,
-                context,
-                supports_runtime_conditional_subtree_rebuild,
-            );
-        }
         DeclarativeUiNode::Button {
             content,
             onclick,
@@ -575,9 +545,11 @@ fn build_spawned_node(
             class,
             class_bindings,
             style_binding,
+            disabled,
             ..
         } => {
             entity.insert_component(build_declarative_button(node, context));
+            entity.insert_component(DeclarativeExplicitDisabled(*disabled));
             if content_has_dynamic_bindings(content) {
                 entity.insert_component(super::state::DeclarativeTextBinding(content.clone()));
             }
@@ -607,6 +579,7 @@ fn build_spawned_node(
         DeclarativeUiNode::Input {
             show_expr,
             disabled_expr,
+            disabled,
             value_binding,
             model_binding,
             checked_binding,
@@ -618,6 +591,7 @@ fn build_spawned_node(
             ..
         } => {
             entity.insert_component(build_declarative_input(node, context));
+            entity.insert_component(DeclarativeExplicitDisabled(*disabled));
             apply_common_bindings_to_entity(
                 entity,
                 show_expr.as_ref(),
@@ -636,6 +610,7 @@ fn build_spawned_node(
             options,
             show_expr,
             disabled_expr,
+            disabled,
             value_binding,
             model_binding,
             ref_binding,
@@ -646,6 +621,7 @@ fn build_spawned_node(
             ..
         } => {
             entity.insert_component(build_declarative_select(node, context));
+            entity.insert_component(DeclarativeExplicitDisabled(*disabled));
             if options
                 .iter()
                 .any(|option| content_has_dynamic_bindings(&option.content))
@@ -878,7 +854,6 @@ fn node_matches_condition(node: &DeclarativeUiNode, context: &DeclarativeUiBuild
         | DeclarativeUiNode::Image { conditional, .. }
         | DeclarativeUiNode::Link { conditional, .. }
         | DeclarativeUiNode::Hr { conditional, .. }
-        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => {
@@ -899,7 +874,6 @@ fn child_matches_conditional_chain(
         | DeclarativeUiNode::Image { conditional, .. }
         | DeclarativeUiNode::Link { conditional, .. }
         | DeclarativeUiNode::Hr { conditional, .. }
-        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => {
@@ -919,7 +893,6 @@ pub(crate) fn node_conditional(node: &DeclarativeUiNode) -> Option<&DeclarativeC
         | DeclarativeUiNode::Image { conditional, .. }
         | DeclarativeUiNode::Link { conditional, .. }
         | DeclarativeUiNode::Hr { conditional, .. }
-        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => Some(conditional),
@@ -936,33 +909,32 @@ fn outlet_name(node: &DeclarativeUiNode) -> Option<&str> {
 
 fn node_children(node: &DeclarativeUiNode) -> Option<&[DeclarativeUiNode]> {
     match node {
-        DeclarativeUiNode::Container { children, .. }
-        | DeclarativeUiNode::Label { children, .. } => Some(children),
+        DeclarativeUiNode::Container { children, .. } => Some(children),
         _ => None,
     }
 }
 
-fn default_container_node_style(tag: Option<DeclarativeContainerTag>) -> DeclarativeNodeStyle {
+fn default_container_node_style(kind: DeclarativeContainerKind) -> DeclarativeNodeStyle {
     let mut style = DeclarativeNodeStyle::default();
-    match tag {
-        Some(DeclarativeContainerTag::Fieldset) => {
+    match kind {
+        DeclarativeContainerKind::Fieldset => {
             style.flex_direction = Some(DeclarativeFlexDirection::Column);
             style.row_gap = Some(DeclarativeVal::Px(10.0));
             style.padding = Some(uniform_rect(12.0));
             style.border = Some(uniform_rect(1.0));
             style.margin = Some(axis_rect(0.0, 10.0));
         }
-        Some(DeclarativeContainerTag::Ul) | Some(DeclarativeContainerTag::Ol) => {
+        DeclarativeContainerKind::UnorderedList | DeclarativeContainerKind::OrderedList => {
             style.flex_direction = Some(DeclarativeFlexDirection::Column);
             style.row_gap = Some(DeclarativeVal::Px(6.0));
             style.margin = Some(axis_rect(0.0, 10.0));
         }
-        Some(DeclarativeContainerTag::Li) => {
+        DeclarativeContainerKind::ListItem => {
             style.flex_direction = Some(DeclarativeFlexDirection::Row);
             style.column_gap = Some(DeclarativeVal::Px(8.0));
             style.align_items = Some(DeclarativeAlignItems::FlexStart);
         }
-        Some(DeclarativeContainerTag::Form) => {
+        DeclarativeContainerKind::Form => {
             style.flex_direction = Some(DeclarativeFlexDirection::Column);
             style.row_gap = Some(DeclarativeVal::Px(12.0));
         }
@@ -994,41 +966,39 @@ fn default_hr_visual_style() -> DeclarativeVisualStyle {
     }
 }
 
-fn merged_text_style(
-    tag: Option<DeclarativeTextTag>,
-    mut style: DeclarativeTextStyle,
-) -> DeclarativeTextStyle {
-    match tag {
-        Some(DeclarativeTextTag::P) => {}
-        Some(DeclarativeTextTag::Legend) => {
+fn merged_text_style(kind: &DeclarativeTextKind, mut style: DeclarativeTextStyle) -> DeclarativeTextStyle {
+    match kind {
+        DeclarativeTextKind::Generic | DeclarativeTextKind::Paragraph => {}
+        DeclarativeTextKind::Legend => {
             style.size = style.size.max(16.0);
             if style.color.is_none() {
                 style.color = Some("#334155".to_string());
             }
         }
-        Some(DeclarativeTextTag::Small) => {
+        DeclarativeTextKind::Small => {
             style.size = style.size.min(12.0);
             if style.color.is_none() {
                 style.color = Some("#64748b".to_string());
             }
         }
-        Some(DeclarativeTextTag::Strong) => {
+        DeclarativeTextKind::Strong => {
             if style.color.is_none() {
                 style.color = Some("#0f172a".to_string());
             }
         }
-        Some(DeclarativeTextTag::Em) => {
+        DeclarativeTextKind::Emphasis => {
             if style.color.is_none() {
                 style.color = Some("#1d4ed8".to_string());
             }
         }
-        Some(DeclarativeTextTag::H1) => style.size = style.size.max(30.0),
-        Some(DeclarativeTextTag::H2) => style.size = style.size.max(26.0),
-        Some(DeclarativeTextTag::H3) => style.size = style.size.max(22.0),
-        Some(DeclarativeTextTag::H4) => style.size = style.size.max(19.0),
-        Some(DeclarativeTextTag::H5) => style.size = style.size.max(17.0),
-        Some(DeclarativeTextTag::H6) => style.size = style.size.max(15.0),
-        _ => {}
+        DeclarativeTextKind::Heading { level } => match level {
+            1 => style.size = style.size.max(30.0),
+            2 => style.size = style.size.max(26.0),
+            3 => style.size = style.size.max(22.0),
+            4 => style.size = style.size.max(19.0),
+            5 => style.size = style.size.max(17.0),
+            _ => style.size = style.size.max(15.0),
+        },
     }
     style
 }
@@ -1142,7 +1112,7 @@ fn axis_rect(horizontal: f32, vertical: f32) -> DeclarativeUiRect {
 
 fn list_marker_text(node: &DeclarativeUiNode, context: &DeclarativeUiBuildContext) -> Option<String> {
     let DeclarativeUiNode::Container {
-        semantic_tag: Some(DeclarativeContainerTag::Li),
+        kind: DeclarativeContainerKind::ListItem,
         ..
     } = node
     else {

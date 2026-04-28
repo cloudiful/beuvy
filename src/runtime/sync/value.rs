@@ -6,7 +6,8 @@ use crate::runtime::state::{
 };
 use beuvy_runtime::button::ButtonLabel;
 use beuvy_runtime::input::{
-    DisabledInput, InputField, InputType, InputValueChangedMessage, set_input_value,
+    DisabledInput, InputField, InputRuntimeValue, InputType, InputValueChangedMessage,
+    set_input_value,
 };
 use beuvy_runtime::text::FontResource;
 use beuvy_runtime::{
@@ -71,7 +72,7 @@ pub(crate) fn sync_declarative_field_values(
             )
             .and_then(|value| value.text().map(str::to_string))
             {
-                field.checked = field.input_value.as_deref() == Some(next_value.as_str());
+                field.checked = field.value() == next_value;
             }
             continue;
         }
@@ -97,7 +98,23 @@ pub(crate) fn sync_declarative_field_values(
         }) else {
             continue;
         };
-        set_input_value(&mut commands, &font_resource, &mut field, disabled, value);
+        match field.input_type {
+            InputType::Checkbox => {
+                let next = value == "true";
+                if field.checked != next {
+                    field.checked = next;
+                }
+            }
+            InputType::Radio => {
+                let next = field.value() == value;
+                if field.checked != next {
+                    field.checked = next;
+                }
+            }
+            _ => {
+                set_input_value(&mut commands, &font_resource, &mut field, disabled, value);
+            }
+        }
     }
 
     for (entity, binding, mut select) in &mut selects {
@@ -142,13 +159,13 @@ pub(crate) fn write_input_values_to_runtime_store(
     >,
 ) {
     for change in input_changes.read() {
-        let Ok((binding, field)) = bindings.get(change.entity) else {
+        let Ok((binding, _field)) = bindings.get(change.entity) else {
             continue;
         };
-        match field.input_type {
-            InputType::Checkbox => values.set(binding.0.clone(), field.checked),
-            InputType::Radio => values.set(binding.0.clone(), change.value.clone()),
-            _ => values.set(binding.0.clone(), change.value.clone()),
+        match &change.runtime_value {
+            InputRuntimeValue::Text(value) => values.set(binding.0.clone(), value.clone()),
+            InputRuntimeValue::Bool(value) => values.set(binding.0.clone(), *value),
+            InputRuntimeValue::Number(value) => values.set(binding.0.clone(), *value),
         }
     }
 }

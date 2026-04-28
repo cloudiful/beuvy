@@ -3,6 +3,7 @@ mod bindings;
 mod context;
 mod controls;
 mod refs;
+mod semantic;
 mod shell;
 mod spawn;
 mod state;
@@ -23,8 +24,10 @@ pub use spawn::{
 };
 pub use state::{
     DeclarativeAppliedTemplateHotReload, DeclarativeCheckedBinding, DeclarativeClassBindings,
-    DeclarativeConditionalChainState, DeclarativeConditionalSubtree, DeclarativeDisabledExpr,
-    DeclarativeEventBindings, DeclarativeLabelForTarget, DeclarativeLabelNode,
+    DeclarativeConditionalChainState, DeclarativeConditionalSubtree, DeclarativeContainerSemantic,
+    DeclarativeDisabledExpr, DeclarativeEventBindings, DeclarativeExplicitDisabled,
+    DeclarativeFieldsetState, DeclarativeFormResetMessage, DeclarativeFormSubmitMessage,
+    DeclarativeLabelForTarget, DeclarativeLabelNode,
     DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
     DeclarativeNodeStyleBindingComponent, DeclarativeOnClickAssignment, DeclarativeRefBinding,
     DeclarativeRefRects, DeclarativeResolvedRef, DeclarativeRootComputedLocals,

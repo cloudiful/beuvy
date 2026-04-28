@@ -8,6 +8,11 @@ use super::sync::{
     sync_declarative_ref_rects, sync_declarative_text_bindings, sync_declarative_visibility,
     write_input_values_to_runtime_store, write_select_values_to_runtime_store,
 };
+use super::semantic::{
+    handle_form_button_clicks, handle_form_input_submits, handle_label_clicks,
+    sync_fieldset_disabled_states,
+};
+use super::state::{DeclarativeFormResetMessage, DeclarativeFormSubmitMessage};
 use crate::ast::DeclarativeUiAsset;
 use crate::error::DeclarativeUiAssetLoadError;
 use crate::style::{BeuvyStyleSource, replace_style_source};
@@ -67,10 +72,16 @@ impl Plugin for DeclarativeUiPlugin {
             .register_asset_loader(DeclarativeUiAssetLoader)
             .init_resource::<DeclarativeUiRuntimeValues>()
             .init_resource::<DeclarativeRefRects>()
+            .add_message::<DeclarativeFormSubmitMessage>()
+            .add_message::<DeclarativeFormResetMessage>()
             .add_systems(
                 Update,
                 (
                     sync_beuvy_style_source,
+                    sync_fieldset_disabled_states,
+                    handle_label_clicks,
+                    handle_form_button_clicks,
+                    handle_form_input_submits,
                     materialize_declarative_overflow_scroll,
                     materialize_declarative_refs,
                     sync_declarative_visibility,

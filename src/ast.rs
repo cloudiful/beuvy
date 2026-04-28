@@ -16,7 +16,7 @@ pub struct DeclarativeUiAsset {
 pub enum DeclarativeUiNode {
     Container {
         node_id: String,
-        semantic_tag: Option<DeclarativeContainerTag>,
+        kind: DeclarativeContainerKind,
         class: String,
         class_bindings: Vec<DeclarativeClassBinding>,
         node: DeclarativeNodeStyle,
@@ -24,6 +24,9 @@ pub enum DeclarativeUiNode {
         outlet: Option<String>,
         conditional: DeclarativeConditional,
         show_expr: Option<DeclarativeConditionExpr>,
+        disabled: bool,
+        disabled_expr: Option<DeclarativeConditionExpr>,
+        label_for: Option<String>,
         visual_style: DeclarativeVisualStyle,
         state_visual_styles: DeclarativeStateVisualStyles,
         ref_binding: Option<DeclarativeRefSource>,
@@ -32,7 +35,7 @@ pub enum DeclarativeUiNode {
     },
     Text {
         node_id: String,
-        semantic_tag: Option<DeclarativeTextTag>,
+        kind: DeclarativeTextKind,
         class: String,
         class_bindings: Vec<DeclarativeClassBinding>,
         content: DeclarativeUiTextContent,
@@ -85,21 +88,10 @@ pub enum DeclarativeUiNode {
         visual_style: DeclarativeVisualStyle,
         state_visual_styles: DeclarativeStateVisualStyles,
     },
-    Label {
-        node_id: String,
-        class: String,
-        class_bindings: Vec<DeclarativeClassBinding>,
-        content: DeclarativeUiTextContent,
-        conditional: DeclarativeConditional,
-        show_expr: Option<DeclarativeConditionExpr>,
-        ref_binding: Option<DeclarativeRefSource>,
-        style: DeclarativeTextStyle,
-        for_target: Option<String>,
-        children: Vec<DeclarativeUiNode>,
-    },
     Button {
         node_id: String,
         name: String,
+        button_type: DeclarativeButtonType,
         class: String,
         class_bindings: Vec<DeclarativeClassBinding>,
         content: DeclarativeUiTextContent,
@@ -124,10 +116,10 @@ pub enum DeclarativeUiNode {
         class_bindings: Vec<DeclarativeClassBinding>,
         conditional: DeclarativeConditional,
         value: String,
-        value_binding: Option<String>,
-        model_binding: Option<String>,
         checked: bool,
         checked_binding: Option<String>,
+        value_binding: Option<String>,
+        model_binding: Option<String>,
         ref_binding: Option<DeclarativeRefSource>,
         event_bindings: Vec<DeclarativeEventBinding>,
         style_binding: Option<DeclarativeNodeStyleBinding>,
@@ -172,37 +164,39 @@ pub enum DeclarativeUiNode {
     },
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-pub enum DeclarativeContainerTag {
-    Div,
-    Section,
-    Header,
-    Footer,
-    Main,
-    Nav,
-    Aside,
-    Article,
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DeclarativeContainerKind {
+    #[default]
+    Generic,
     Form,
     Fieldset,
-    Ul,
-    Ol,
-    Li,
+    Label,
+    UnorderedList,
+    OrderedList,
+    ListItem,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-pub enum DeclarativeTextTag {
-    Span,
-    P,
-    Legend,
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DeclarativeTextKind {
+    #[default]
+    Generic,
+    Paragraph,
     Small,
+    Legend,
     Strong,
-    Em,
-    H1,
-    H2,
-    H3,
-    H4,
-    H5,
-    H6,
+    Emphasis,
+    Heading { level: u8 },
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DeclarativeButtonType {
+    #[default]
+    Button,
+    Submit,
+    Reset,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -690,6 +684,8 @@ pub enum DeclarativeEventKind {
     Change,
     Scroll,
     Wheel,
+    Submit,
+    Reset,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -724,7 +720,6 @@ impl DeclarativeUiNode {
             | Self::Image { node_id, .. }
             | Self::Link { node_id, .. }
             | Self::Hr { node_id, .. }
-            | Self::Label { node_id, .. }
             | Self::Button { node_id, .. }
             | Self::Input { node_id, .. }
             | Self::Select { node_id, .. }
@@ -740,7 +735,6 @@ impl DeclarativeUiNode {
             | Self::Image { node_id, .. }
             | Self::Link { node_id, .. }
             | Self::Hr { node_id, .. }
-            | Self::Label { node_id, .. }
             | Self::Button { node_id, .. }
             | Self::Input { node_id, .. }
             | Self::Select { node_id, .. }
@@ -750,18 +744,14 @@ impl DeclarativeUiNode {
 
     pub fn children(&self) -> Option<&[DeclarativeUiNode]> {
         match self {
-            Self::Container { children, .. }
-            | Self::Label { children, .. }
-            | Self::Template { children, .. } => Some(children),
+            Self::Container { children, .. } | Self::Template { children, .. } => Some(children),
             _ => None,
         }
     }
 
     pub fn children_mut(&mut self) -> Option<&mut Vec<DeclarativeUiNode>> {
         match self {
-            Self::Container { children, .. }
-            | Self::Label { children, .. }
-            | Self::Template { children, .. } => Some(children),
+            Self::Container { children, .. } | Self::Template { children, .. } => Some(children),
             _ => None,
         }
     }

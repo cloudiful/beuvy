@@ -1,9 +1,10 @@
 use crate::ast::{
-    DeclarativeEventBinding, DeclarativeEventKind, DeclarativeOnClick, DeclarativeUiNode,
+    DeclarativeButtonType, DeclarativeEventBinding, DeclarativeEventKind, DeclarativeOnClick,
+    DeclarativeUiNode,
 };
 use crate::error::DeclarativeUiAssetLoadError;
 use crate::parser::{
-    DeclarativeStateSpec, attr, parse_bool_or_condition_attr, parse_class_bindings,
+    DeclarativeStateSpec, attr, attr_error, parse_bool_or_condition_attr, parse_class_bindings,
     parse_conditional, parse_event_bindings, parse_node_style, parse_node_style_binding,
     parse_onclick, parse_ref_binding, parse_show_attr, parse_state_visual_styles,
     parse_text_content, parse_utility_class_patch, parse_visual_style, reject_legacy_attrs,
@@ -40,6 +41,7 @@ pub(crate) fn parse_declarative_button_node(
     Ok(DeclarativeUiNode::Button {
         node_id: String::new(),
         name: attr(node, "name").unwrap_or_default().to_string(),
+        button_type: parse_button_type(node)?,
         class: attr(node, "class").unwrap_or_default().to_string(),
         class_bindings: parse_class_bindings(node, state_specs)?,
         content: parse_text_content(node)?,
@@ -58,10 +60,27 @@ pub(crate) fn parse_declarative_button_node(
     })
 }
 
+fn parse_button_type(
+    node: XmlNode<'_, '_>,
+) -> Result<DeclarativeButtonType, DeclarativeUiAssetLoadError> {
+    match attr(node, "type").unwrap_or("button") {
+        "" | "button" => Ok(DeclarativeButtonType::Button),
+        "submit" => Ok(DeclarativeButtonType::Submit),
+        "reset" => Ok(DeclarativeButtonType::Reset),
+        raw => Err(attr_error(
+            node,
+            "type",
+            raw,
+            "expected button, submit, or reset",
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        DeclarativeClassBinding, DeclarativeOnClick, DeclarativeUiNode, parse_declarative_ui_asset,
+        DeclarativeButtonType, DeclarativeClassBinding, DeclarativeOnClick, DeclarativeUiNode,
+        parse_declarative_ui_asset,
     };
 
     #[test]
@@ -147,5 +166,17 @@ mod tests {
         )
         .expect_err("active binding should be rejected");
         assert!(error.to_string().contains("active"));
+    }
+
+    #[test]
+    fn button_type_parses() {
+        let asset = parse_declarative_ui_asset(
+            r#"<template><button type="submit">Save</button></template>"#,
+        )
+        .expect("button should parse");
+        let DeclarativeUiNode::Button { button_type, .. } = asset.root else {
+            panic!("expected button node");
+        };
+        assert_eq!(button_type, DeclarativeButtonType::Submit);
     }
 }

@@ -1,7 +1,8 @@
 use crate::ast::{
     DeclarativeClassBinding, DeclarativeComputedLocal, DeclarativeConditionExpr,
-    DeclarativeEventKind, DeclarativeLiteral, DeclarativeNodeStyleBinding, DeclarativeRefSource,
-    DeclarativeRuntimeExpr, DeclarativeSelectOption, DeclarativeUiAsset, DeclarativeUiTextContent,
+    DeclarativeContainerKind, DeclarativeEventKind, DeclarativeLiteral, DeclarativeNodeStyleBinding,
+    DeclarativeRefSource, DeclarativeRuntimeExpr, DeclarativeSelectOption, DeclarativeUiAsset,
+    DeclarativeUiTextContent,
 };
 use crate::value::UiValue;
 use bevy::prelude::*;
@@ -70,6 +71,21 @@ pub struct DeclarativeRootUiAsset(pub Handle<DeclarativeUiAsset>);
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
 pub struct DeclarativeNodeId(pub String);
 
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeContainerSemantic {
+    pub kind: DeclarativeContainerKind,
+    pub label_for: Option<String>,
+}
+
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeExplicitDisabled(pub bool);
+
+#[derive(Component, Debug, Clone, PartialEq)]
+pub struct DeclarativeFieldsetState {
+    pub disabled: bool,
+    pub disabled_expr: Option<DeclarativeConditionExpr>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeclarativeConditionalChainState {
     pub start_index: usize,
@@ -111,6 +127,19 @@ pub struct ResolvedDeclarativeEventBinding {
 
 #[derive(Component, Debug, Clone)]
 pub struct DeclarativeUiSlot;
+
+#[allow(dead_code)]
+#[derive(Message, Debug, Clone)]
+pub struct DeclarativeFormSubmitMessage {
+    pub entity: Entity,
+    pub values: HashMap<String, UiValue>,
+}
+
+#[allow(dead_code)]
+#[derive(Message, Debug, Clone)]
+pub struct DeclarativeFormResetMessage {
+    pub entity: Entity,
+}
 
 #[derive(Debug, Clone)]
 pub struct DeclarativeUiSlots {

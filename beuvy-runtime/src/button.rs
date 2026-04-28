@@ -16,6 +16,7 @@ pub enum ButtonSet {
 #[derive(Component, Default, Debug, Clone)]
 pub struct Button {
     pub name: String,
+    pub button_type: ButtonType,
 }
 
 #[derive(Component, Default, Debug, Clone)]
@@ -47,6 +48,7 @@ impl Plugin for ButtonPlugin {
 #[derive(Component, Debug, Clone)]
 pub struct AddButton {
     pub name: String,
+    pub button_type: ButtonType,
     pub text: String,
     pub localized_text: Option<TextKey>,
     pub localized_text_format: Option<LocalizedTextFormat>,
@@ -60,6 +62,7 @@ impl Default for AddButton {
     fn default() -> Self {
         Self {
             name: String::new(),
+            button_type: ButtonType::Button,
             text: String::new(),
             localized_text: None,
             localized_text_format: None,
@@ -75,4 +78,12 @@ impl Default for AddButton {
 pub struct ButtonClickMessage {
     pub button: Button,
     pub entity: Entity,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ButtonType {
+    #[default]
+    Button,
+    Submit,
+    Reset,
 }

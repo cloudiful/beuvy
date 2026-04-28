@@ -36,6 +36,7 @@ pub(crate) fn handle_declarative_label_click(
                     entity: target_entity,
                     name: field.name.clone(),
                     value: field.submitted_value(),
+                    runtime_value: beuvy_runtime::input::InputRuntimeValue::Bool(field.checked),
                 });
             } else if target_input_type == beuvy_runtime::input::InputType::Radio && !target_checked {
                 let radio_group = target_name;
@@ -57,6 +58,9 @@ pub(crate) fn handle_declarative_label_click(
                                 entity: radio_target,
                                 name: radio_field.name.clone(),
                                 value: radio_field.submitted_value(),
+                                runtime_value: beuvy_runtime::input::InputRuntimeValue::Text(
+                                    radio_field.value().to_string(),
+                                ),
                             });
                         }
                     }

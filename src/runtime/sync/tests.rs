@@ -15,12 +15,36 @@ use crate::runtime::state::{
 use crate::value::UiValue;
 use beuvy_runtime::Select;
 use beuvy_runtime::button::ButtonLabel;
-use beuvy_runtime::input::{InputField, InputType, InputValueChangedMessage, TextEditState};
+use beuvy_runtime::input::{
+    InputField, InputRuntimeValue, InputType, InputValueChangedMessage, TextEditState, UndoStack,
+};
 use beuvy_runtime::select::SelectOptionState;
 use beuvy_runtime::text::FontResource;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use std::collections::HashMap;
+
+fn test_input_field(input_type: InputType, value: &str) -> InputField {
+    InputField {
+        name: "volume".to_string(),
+        input_type,
+        checked: false,
+        placeholder: String::new(),
+        viewport_entity: None,
+        text_entity: Some(Entity::PLACEHOLDER),
+        selection_entity: Some(Entity::PLACEHOLDER),
+        caret_entity: Some(Entity::PLACEHOLDER),
+        edit_state: TextEditState::with_text(value),
+        initial_value: value.to_string(),
+        initial_checked: false,
+        min: None,
+        max: None,
+        step: None,
+        caret_blink_resume_at: 0.0,
+        preferred_caret_x: None,
+        undo_stack: UndoStack::default(),
+    }
+}
 
 #[test]
 fn numeric_field_value_sync_accepts_text_value() {
@@ -33,24 +57,7 @@ fn numeric_field_value_sync_accepts_text_value() {
     let entity = app
         .world_mut()
         .spawn((
-            InputField {
-                name: "volume".to_string(),
-                input_type: InputType::Range,
-                checked: false,
-                input_value: None,
-                placeholder: String::new(),
-                viewport_entity: None,
-                text_entity: Some(Entity::PLACEHOLDER),
-                selection_entity: Some(Entity::PLACEHOLDER),
-                caret_entity: Some(Entity::PLACEHOLDER),
-                edit_state: TextEditState::with_text("0"),
-                min: None,
-                max: None,
-                step: None,
-                caret_blink_resume_at: 0.0,
-                preferred_caret_x: None,
-                undo_stack: Default::default(),
-            },
+            test_input_field(InputType::Range, "0"),
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeRootViewModel(UiValue::object([(
                 "settings",
@@ -80,24 +87,7 @@ fn value_binding_does_not_write_input_change_to_runtime_store() {
     let entity = app
         .world_mut()
         .spawn((
-            InputField {
-                name: "volume".to_string(),
-                input_type: InputType::Range,
-                checked: false,
-                input_value: None,
-                placeholder: String::new(),
-                viewport_entity: None,
-                text_entity: Some(Entity::PLACEHOLDER),
-                selection_entity: Some(Entity::PLACEHOLDER),
-                caret_entity: Some(Entity::PLACEHOLDER),
-                edit_state: TextEditState::with_text("10"),
-                min: None,
-                max: None,
-                step: None,
-                caret_blink_resume_at: 0.0,
-                preferred_caret_x: None,
-                undo_stack: Default::default(),
-            },
+            test_input_field(InputType::Range, "10"),
             DeclarativeValueBinding("settings.volume".to_string()),
         ))
         .id();
@@ -106,6 +96,7 @@ fn value_binding_does_not_write_input_change_to_runtime_store() {
         entity,
         name: "volume".to_string(),
         value: "42".to_string(),
+        runtime_value: InputRuntimeValue::Number(42.0),
     });
     app.update();
 
@@ -127,24 +118,7 @@ fn v_model_writes_input_change_to_runtime_store() {
     let entity = app
         .world_mut()
         .spawn((
-            InputField {
-                name: "volume".to_string(),
-                input_type: InputType::Range,
-                checked: false,
-                input_value: None,
-                placeholder: String::new(),
-                viewport_entity: None,
-                text_entity: Some(Entity::PLACEHOLDER),
-                selection_entity: Some(Entity::PLACEHOLDER),
-                caret_entity: Some(Entity::PLACEHOLDER),
-                edit_state: TextEditState::with_text("10"),
-                min: None,
-                max: None,
-                step: None,
-                caret_blink_resume_at: 0.0,
-                preferred_caret_x: None,
-                undo_stack: Default::default(),
-            },
+            test_input_field(InputType::Range, "10"),
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeModelBinding,
         ))
@@ -154,6 +128,7 @@ fn v_model_writes_input_change_to_runtime_store() {
         entity,
         name: "volume".to_string(),
         value: "42".to_string(),
+        runtime_value: InputRuntimeValue::Number(42.0),
     });
     app.update();
 
@@ -161,7 +136,7 @@ fn v_model_writes_input_change_to_runtime_store() {
         app.world()
             .resource::<DeclarativeUiRuntimeValues>()
             .get("settings.volume"),
-        Some(&UiValue::Text("42".to_string()))
+        Some(&UiValue::from(42.0_f64))
     );
 }
 
@@ -179,13 +154,14 @@ fn checkbox_v_model_writes_bool_to_runtime_store() {
                 name: "enabled".to_string(),
                 input_type: InputType::Checkbox,
                 checked: true,
-                input_value: None,
                 placeholder: String::new(),
                 viewport_entity: None,
                 text_entity: None,
                 selection_entity: None,
                 caret_entity: None,
                 edit_state: TextEditState::with_text(""),
+                initial_value: String::new(),
+                initial_checked: true,
                 min: None,
                 max: None,
                 step: None,
@@ -202,6 +178,7 @@ fn checkbox_v_model_writes_bool_to_runtime_store() {
         entity,
         name: "enabled".to_string(),
         value: "true".to_string(),
+        runtime_value: InputRuntimeValue::Bool(true),
     });
     app.update();
 
@@ -228,13 +205,14 @@ fn radio_field_value_sync_marks_selected_option() {
                 name: "mode".to_string(),
                 input_type: InputType::Radio,
                 checked: false,
-                input_value: Some("easy".to_string()),
                 placeholder: String::new(),
                 viewport_entity: None,
                 text_entity: None,
                 selection_entity: None,
                 caret_entity: None,
                 edit_state: TextEditState::with_text("easy"),
+                initial_value: "easy".to_string(),
+                initial_checked: false,
                 min: None,
                 max: None,
                 step: None,
@@ -413,6 +391,7 @@ fn select_option_and_trigger_labels_update_from_runtime_store() {
         Select {
             name: "language".to_string(),
             value: "one".to_string(),
+            initial_value: "one".to_string(),
             options: vec![SelectOptionState {
                 entity: option_button,
                 value: "one".to_string(),
