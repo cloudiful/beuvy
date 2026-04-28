@@ -34,6 +34,7 @@ pub(crate) fn handle_keyboard_input(
     fields_marker: Query<(), With<InputField>>,
     mut fields: Query<(Entity, &mut InputField, Has<DisabledInput>)>,
     text_nodes: Query<&ComputedTextBlock, With<crate::input::InputText>>,
+    viewports: Query<&ComputedNode, With<crate::input::InputViewport>>,
     input_focus: Res<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -159,10 +160,15 @@ pub(crate) fn handle_keyboard_input(
             }
             (Key::ArrowUp, _) => {
                 if field.is_multiline() {
-                    if let Some(text_entity) = field.text_entity {
-                        if let Ok(block) = text_nodes.get(text_entity) {
+                    if let (Some(viewport_entity), Some(text_entity)) =
+                        (field.viewport_entity, field.text_entity)
+                    {
+                        if let (Ok(block), Ok(viewport)) =
+                            (text_nodes.get(text_entity), viewports.get(viewport_entity))
+                        {
                             if let Some((byte, preferred_x)) = text_engine.move_byte_vertically(
                                 block,
+                                viewport.inverse_scale_factor(),
                                 field.edit_state.display_caret_byte(),
                                 field.preferred_caret_x,
                                 -1,
@@ -181,10 +187,15 @@ pub(crate) fn handle_keyboard_input(
             }
             (Key::ArrowDown, _) => {
                 if field.is_multiline() {
-                    if let Some(text_entity) = field.text_entity {
-                        if let Ok(block) = text_nodes.get(text_entity) {
+                    if let (Some(viewport_entity), Some(text_entity)) =
+                        (field.viewport_entity, field.text_entity)
+                    {
+                        if let (Ok(block), Ok(viewport)) =
+                            (text_nodes.get(text_entity), viewports.get(viewport_entity))
+                        {
                             if let Some((byte, preferred_x)) = text_engine.move_byte_vertically(
                                 block,
+                                viewport.inverse_scale_factor(),
                                 field.edit_state.display_caret_byte(),
                                 field.preferred_caret_x,
                                 1,

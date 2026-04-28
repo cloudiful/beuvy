@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::text::ComputedTextBlock;
-use cosmic_text::{Affinity, Buffer, Cursor, Motion};
+use cosmic_text::{Affinity, Buffer, Cursor};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct InputCaretRect {
@@ -47,30 +47,16 @@ impl InputTextEngine {
     pub(crate) fn move_byte_vertically(
         &self,
         block: &ComputedTextBlock,
+        inverse_scale_factor: f32,
         byte: usize,
         preferred_x: Option<f32>,
         direction: i32,
     ) -> Option<(usize, f32)> {
-        let mut buffer = block.buffer().0.clone();
-        let text = buffer_text(&buffer);
-        let cursor = cursor_for_byte(&text, byte);
-        let motion = if direction < 0 {
-            Motion::Up
-        } else if direction > 0 {
-            Motion::Down
-        } else {
+        if direction == 0 {
             return Some((byte, preferred_x.unwrap_or(0.0)));
-        };
-        let preferred = preferred_x.map(|x| x.round() as i32);
-        let mut font_system = cosmic_text::FontSystem::new();
-        let (cursor, next_x) = buffer.cursor_motion(&mut font_system, cursor, preferred, motion)?;
-        let byte = byte_for_cursor(&text, cursor);
-        Some((
-            byte,
-            next_x
-                .map(|x| x as f32)
-                .unwrap_or(preferred_x.unwrap_or(0.0)),
-        ))
+        }
+        let layout = self.layout(block, inverse_scale_factor);
+        layout.move_byte_vertically(byte, preferred_x, direction)
     }
 }
 
@@ -93,12 +79,18 @@ impl InputTextLayout {
             if run.line_i != cursor.line {
                 continue;
             }
-            if run.glyphs.is_empty() || cursor.index == 0 {
+            if run.glyphs.is_empty() {
+                if cursor.index != 0 {
+                    continue;
+                }
                 return InputCaretRect {
                     x: 0.0,
                     top: run.line_top * self.inverse_scale_factor,
                     height: run.line_height * self.inverse_scale_factor,
                 };
+            }
+            if !run_contains_cursor(&run, cursor) {
+                continue;
             }
             let run_end = run.glyphs.last().map(|glyph| glyph.end).unwrap_or(0);
             let x = if cursor.index >= run_end {
@@ -133,6 +125,31 @@ impl InputTextLayout {
         }
 
         fallback
+    }
+
+    pub(crate) fn move_byte_vertically(
+        &self,
+        byte: usize,
+        preferred_x: Option<f32>,
+        direction: i32,
+    ) -> Option<(usize, f32)> {
+        let caret = self.caret_rect(byte);
+        if caret.height <= 0.0 {
+            return None;
+        }
+        let preferred_x = preferred_x.unwrap_or(caret.x);
+        let target_y = if direction < 0 {
+            caret.top - caret.height * 0.5
+        } else {
+            caret.top + caret.height * 1.5
+        };
+        if target_y < 0.0 || target_y > self.size().y {
+            return None;
+        }
+        let physical_x = preferred_x.max(0.0) / self.inverse_scale_factor;
+        let physical_y = target_y / self.inverse_scale_factor;
+        let cursor = self.buffer.hit(physical_x, physical_y)?;
+        Some((byte_for_cursor(&self.text, cursor), preferred_x))
     }
 
     pub(crate) fn selection_rects(&self, start: usize, end: usize) -> Vec<(f32, f32, f32, f32)> {
@@ -234,6 +251,16 @@ fn glyph_leading_edge(rtl: bool, glyph: &cosmic_text::LayoutGlyph) -> f32 {
 
 fn glyph_trailing_edge(rtl: bool, glyph: &cosmic_text::LayoutGlyph) -> f32 {
     if rtl { glyph.x } else { glyph.x + glyph.w }
+}
+
+fn run_contains_cursor(run: &cosmic_text::LayoutRun<'_>, cursor: Cursor) -> bool {
+    let Some(first) = run.glyphs.first() else {
+        return cursor.index == 0;
+    };
+    let Some(last) = run.glyphs.last() else {
+        return cursor.index == 0;
+    };
+    cursor.index >= first.start && cursor.index <= last.end
 }
 
 fn buffer_text(buffer: &Buffer) -> String {
