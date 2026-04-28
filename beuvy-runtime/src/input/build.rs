@@ -6,7 +6,7 @@ use super::text::{
 };
 use super::{
     AddInput, DisabledInput, InputCaret, InputClickState, InputField, InputScrollOffset,
-    InputSelection, InputType, RangeState, UndoStack,
+    InputSelection, InputType, InputViewport, RangeState, UndoStack,
 };
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
@@ -78,6 +78,7 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
                         placeholder: add_input.placeholder.clone(),
+                        viewport_entity: None,
                         text_entity: None,
                         selection_entity: None,
                         caret_entity: None,
@@ -126,6 +127,20 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     };
                     entity_commands.world_scope(|world| {
                         let selection_color = input_selection_color();
+                        let viewport_entity = world
+                            .spawn((
+                                InputViewport,
+                                Pickable::IGNORE,
+                                Node {
+                                    position_type: PositionType::Relative,
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
+                                    min_width: Val::Px(0.0),
+                                    overflow: Overflow::clip(),
+                                    ..default()
+                                },
+                            ))
+                            .id();
                         let selection_entity = world
                             .spawn((
                                 InputSelection,
@@ -171,14 +186,16 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                 BackgroundColor(crate::style::input_caret_color()),
                             ))
                             .id();
-                        world.entity_mut(input_entity).add_children(&[
+                        world.entity_mut(viewport_entity).add_children(&[
                             selection_entity,
                             text_entity,
                             caret_entity,
                         ]);
+                        world.entity_mut(input_entity).add_child(viewport_entity);
                         let mut input = world
                             .get_mut::<InputField>(input_entity)
                             .expect("input just inserted");
+                        input.viewport_entity = Some(viewport_entity);
                         input.text_entity = Some(text_entity);
                         input.selection_entity = Some(selection_entity);
                         input.caret_entity = Some(caret_entity);

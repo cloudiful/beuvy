@@ -40,7 +40,7 @@ pub(crate) fn handle_keyboard_input(
     font_resource: Res<FontResource>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
     mut clipboard: NonSendMut<InputClipboard>,
-    text_engine: NonSend<InputTextEngine>,
+    text_engine: Res<InputTextEngine>,
 ) {
     let Some(active) = active_input_entity(&input_focus, &fields_marker) else {
         return;
@@ -161,10 +161,7 @@ pub(crate) fn handle_keyboard_input(
                 if field.is_multiline() {
                     if let Some(text_entity) = field.text_entity {
                         if let Ok(block) = text_nodes.get(text_entity) {
-                            let display_text =
-                                field.edit_state.display_text_string(&field.placeholder);
                             if let Some((byte, preferred_x)) = text_engine.move_byte_vertically(
-                                &display_text.text,
                                 block,
                                 field.edit_state.display_caret_byte(),
                                 field.preferred_caret_x,
@@ -186,10 +183,7 @@ pub(crate) fn handle_keyboard_input(
                 if field.is_multiline() {
                     if let Some(text_entity) = field.text_entity {
                         if let Ok(block) = text_nodes.get(text_entity) {
-                            let display_text =
-                                field.edit_state.display_text_string(&field.placeholder);
                             if let Some((byte, preferred_x)) = text_engine.move_byte_vertically(
-                                &display_text.text,
                                 block,
                                 field.edit_state.display_caret_byte(),
                                 field.preferred_caret_x,
@@ -257,6 +251,7 @@ mod tests {
             name: "input".to_string(),
             input_type,
             placeholder: String::new(),
+            viewport_entity: None,
             text_entity: None,
             selection_entity: None,
             caret_entity: None,

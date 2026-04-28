@@ -9,43 +9,51 @@ pub(crate) struct InputCaretRect {
     pub height: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct InputTextLayoutParams {
-    pub width: f32,
-    pub height: f32,
-    pub multiline: bool,
-}
-
-#[derive(Debug, Default)]
+#[derive(Resource, Debug, Default)]
 pub(crate) struct InputTextEngine;
 
 impl InputTextEngine {
-    pub(crate) fn layout(&self, text: &str, block: &ComputedTextBlock) -> InputTextLayout {
+    pub(crate) fn layout(
+        &self,
+        block: &ComputedTextBlock,
+        inverse_scale_factor: f32,
+    ) -> InputTextLayout {
+        let buffer = block.buffer().0.clone();
+        let text = buffer_text(&buffer);
         InputTextLayout {
-            buffer: block.buffer().0.clone(),
-            text: text.to_string(),
+            buffer,
+            text,
+            inverse_scale_factor,
         }
     }
 
-    pub(crate) fn hit_byte(&self, text: &str, block: &ComputedTextBlock, x: f32, y: f32) -> usize {
-        let layout = self.layout(text, block);
+    pub(crate) fn hit_byte(
+        &self,
+        block: &ComputedTextBlock,
+        inverse_scale_factor: f32,
+        x: f32,
+        y: f32,
+    ) -> usize {
+        let layout = self.layout(block, inverse_scale_factor);
+        let physical_x = x.max(0.0) / inverse_scale_factor;
+        let physical_y = y.max(0.0) / inverse_scale_factor;
         layout
             .buffer
-            .hit(x.max(0.0), y.max(0.0))
+            .hit(physical_x, physical_y)
             .map(|cursor| byte_for_cursor(&layout.text, cursor))
             .unwrap_or_else(|| if x <= 0.0 { 0 } else { layout.text.len() })
     }
 
     pub(crate) fn move_byte_vertically(
         &self,
-        text: &str,
         block: &ComputedTextBlock,
         byte: usize,
         preferred_x: Option<f32>,
         direction: i32,
     ) -> Option<(usize, f32)> {
         let mut buffer = block.buffer().0.clone();
-        let cursor = cursor_for_byte(text, byte);
+        let text = buffer_text(&buffer);
+        let cursor = cursor_for_byte(&text, byte);
         let motion = if direction < 0 {
             Motion::Up
         } else if direction > 0 {
@@ -56,7 +64,7 @@ impl InputTextEngine {
         let preferred = preferred_x.map(|x| x.round() as i32);
         let mut font_system = cosmic_text::FontSystem::new();
         let (cursor, next_x) = buffer.cursor_motion(&mut font_system, cursor, preferred, motion)?;
-        let byte = byte_for_cursor(text, cursor);
+        let byte = byte_for_cursor(&text, cursor);
         Some((
             byte,
             next_x
@@ -69,12 +77,13 @@ impl InputTextEngine {
 pub(crate) struct InputTextLayout {
     buffer: Buffer,
     text: String,
+    inverse_scale_factor: f32,
 }
 
 impl InputTextLayout {
     pub(crate) fn caret_rect(&self, byte: usize) -> InputCaretRect {
         let cursor = cursor_for_byte(&self.text, byte);
-        let mut fallback = InputCaretRect {
+        let fallback = InputCaretRect {
             x: 0.0,
             top: 0.0,
             height: 0.0,
@@ -84,29 +93,43 @@ impl InputTextLayout {
             if run.line_i != cursor.line {
                 continue;
             }
-            fallback = InputCaretRect {
-                x: run
-                    .glyphs
-                    .last()
-                    .map(|glyph| if run.rtl { glyph.x } else { glyph.x + glyph.w })
-                    .unwrap_or(0.0),
-                top: run.line_top,
-                height: run.line_height,
-            };
-            if let Some((x, _)) = run.highlight(cursor, cursor) {
-                return InputCaretRect {
-                    x,
-                    top: run.line_top,
-                    height: run.line_height,
-                };
-            }
             if run.glyphs.is_empty() || cursor.index == 0 {
                 return InputCaretRect {
                     x: 0.0,
-                    top: run.line_top,
-                    height: run.line_height,
+                    top: run.line_top * self.inverse_scale_factor,
+                    height: run.line_height * self.inverse_scale_factor,
                 };
             }
+            let run_end = run.glyphs.last().map(|glyph| glyph.end).unwrap_or(0);
+            let x = if cursor.index >= run_end {
+                run.glyphs
+                    .last()
+                    .map(|glyph| glyph_trailing_edge(run.rtl, glyph))
+                    .unwrap_or(0.0)
+            } else {
+                run.glyphs
+                    .iter()
+                    .find_map(|glyph| {
+                        if cursor.index <= glyph.start {
+                            Some(glyph_leading_edge(run.rtl, glyph))
+                        } else if cursor.index <= glyph.end {
+                            Some(glyph_trailing_edge(run.rtl, glyph))
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| {
+                        run.glyphs
+                            .last()
+                            .map(|glyph| glyph_trailing_edge(run.rtl, glyph))
+                            .unwrap_or(0.0)
+                    })
+            };
+            return InputCaretRect {
+                x: x * self.inverse_scale_factor,
+                top: run.line_top * self.inverse_scale_factor,
+                height: run.line_height * self.inverse_scale_factor,
+            };
         }
 
         fallback
@@ -122,7 +145,12 @@ impl InputTextLayout {
         for run in self.buffer.layout_runs() {
             if let Some((left, width)) = run.highlight(start, end) {
                 if width > 0.0 {
-                    rects.push((left, run.line_top, width, run.line_height));
+                    rects.push((
+                        left * self.inverse_scale_factor,
+                        run.line_top * self.inverse_scale_factor,
+                        width * self.inverse_scale_factor,
+                        run.line_height * self.inverse_scale_factor,
+                    ));
                 }
             }
         }
@@ -133,30 +161,29 @@ impl InputTextLayout {
         let mut width = 0.0f32;
         let mut height = 0.0f32;
         for run in self.buffer.layout_runs() {
-            width = width.max(run.line_w);
-            height = height.max(run.line_top + run.line_height);
+            width = width.max(run.line_w * self.inverse_scale_factor);
+            height = height.max((run.line_top + run.line_height) * self.inverse_scale_factor);
         }
         Vec2::new(width, height)
     }
 }
 
-pub(crate) fn input_layout_params(
-    input_computed: &ComputedNode,
-    multiline: bool,
-) -> InputTextLayoutParams {
-    let input_scale = input_computed.inverse_scale_factor();
-    let input_inset = input_computed.content_inset();
-    InputTextLayoutParams {
-        width: (input_computed.size().x * input_scale
-            - input_inset.min_inset.x
-            - input_inset.max_inset.x)
-            .max(0.0),
-        height: (input_computed.size().y * input_scale
-            - input_inset.min_inset.y
-            - input_inset.max_inset.y)
-            .max(0.0),
-        multiline,
+pub(crate) fn scroll_caret_rect(rect: InputCaretRect, scroll: Vec2) -> InputCaretRect {
+    InputCaretRect {
+        x: rect.x - scroll.x,
+        top: rect.top - scroll.y,
+        height: rect.height,
     }
+}
+
+pub(crate) fn scroll_selection_rects(
+    rects: &[(f32, f32, f32, f32)],
+    scroll: Vec2,
+) -> Vec<(f32, f32, f32, f32)> {
+    rects
+        .iter()
+        .map(|(left, top, width, height)| (left - scroll.x, top - scroll.y, *width, *height))
+        .collect()
 }
 
 fn cursor_for_byte(text: &str, byte: usize) -> Cursor {
@@ -201,14 +228,43 @@ fn clamp_char_boundary(text: &str, byte: usize) -> usize {
     byte
 }
 
+fn glyph_leading_edge(rtl: bool, glyph: &cosmic_text::LayoutGlyph) -> f32 {
+    if rtl { glyph.x + glyph.w } else { glyph.x }
+}
+
+fn glyph_trailing_edge(rtl: bool, glyph: &cosmic_text::LayoutGlyph) -> f32 {
+    if rtl { glyph.x } else { glyph.x + glyph.w }
+}
+
+fn buffer_text(buffer: &Buffer) -> String {
+    let mut text = String::new();
+    for line in &buffer.lines {
+        text.push_str(line.text());
+        text.push_str(line.ending().as_str());
+    }
+    text
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use cosmic_text::{Attrs, FontSystem, Metrics, Shaping, Wrap};
 
     fn layout(text: &str, multiline: bool) -> InputTextLayout {
+        layout_with_scale(text, multiline, 1.0)
+    }
+
+    fn layout_with_scale(
+        text: &str,
+        multiline: bool,
+        inverse_scale_factor: f32,
+    ) -> InputTextLayout {
         let mut font_system = FontSystem::new();
-        let mut buffer = Buffer::new(&mut font_system, Metrics::new(16.0, 24.0));
+        let scale_factor = inverse_scale_factor.recip();
+        let mut buffer = Buffer::new(
+            &mut font_system,
+            Metrics::new(16.0 * scale_factor, 24.0 * scale_factor),
+        );
         buffer.set_wrap(
             &mut font_system,
             if multiline {
@@ -231,8 +287,9 @@ mod tests {
         );
         buffer.shape_until_scroll(&mut font_system, false);
         InputTextLayout {
+            text: buffer_text(&buffer),
             buffer,
-            text: text.to_string(),
+            inverse_scale_factor,
         }
     }
 
@@ -263,11 +320,51 @@ mod tests {
     }
 
     #[test]
+    fn caret_rect_is_reported_in_logical_pixels() {
+        let normal = layout_with_scale("1234", false, 1.0);
+        let scaled = layout_with_scale("1234", false, 0.5);
+
+        let normal_end = normal.caret_rect("1234".len());
+        let scaled_end = scaled.caret_rect("1234".len());
+
+        assert!((normal_end.x - scaled_end.x).abs() < 0.01);
+        assert!((normal_end.height - scaled_end.height).abs() < 0.01);
+    }
+
+    #[test]
     fn byte_cursor_round_trip_multiline() {
         let text = "a\nbc\n";
 
         for byte in [0, 1, 2, 3, 4, 5] {
             assert_eq!(byte_for_cursor(text, cursor_for_byte(text, byte)), byte);
         }
+    }
+
+    #[test]
+    fn scroll_caret_rect_offsets_viewport_position() {
+        let rect = InputCaretRect {
+            x: 80.0,
+            top: 24.0,
+            height: 18.0,
+        };
+
+        assert_eq!(
+            scroll_caret_rect(rect, Vec2::new(30.0, 10.0)),
+            InputCaretRect {
+                x: 50.0,
+                top: 14.0,
+                height: 18.0,
+            }
+        );
+    }
+
+    #[test]
+    fn scroll_selection_rects_offsets_viewport_position() {
+        let rects = vec![(80.0, 24.0, 40.0, 18.0)];
+
+        assert_eq!(
+            scroll_selection_rects(&rects, Vec2::new(30.0, 10.0)),
+            vec![(50.0, 14.0, 40.0, 18.0)]
+        );
     }
 }

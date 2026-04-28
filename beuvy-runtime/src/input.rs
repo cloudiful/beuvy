@@ -76,6 +76,7 @@ pub struct InputField {
     pub name: String,
     pub input_type: InputType,
     pub placeholder: String,
+    pub viewport_entity: Option<Entity>,
     pub text_entity: Option<Entity>,
     pub selection_entity: Option<Entity>,
     pub caret_entity: Option<Entity>,
@@ -139,6 +140,9 @@ impl InputField {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InputText;
 
+#[derive(Component, Debug, Clone, Copy)]
+pub(crate) struct InputViewport;
+
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct DisabledInput;
 
@@ -173,6 +177,7 @@ pub(crate) struct InputScrollOffset {
 pub(crate) struct InputClickState {
     pub last_click_time: f64,
     pub click_count: u8,
+    pub last_click_position: Option<Vec2>,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -201,8 +206,8 @@ impl Plugin for InputPlugin {
             .add_message::<Pointer<Click>>()
             .init_resource::<InputFocus>()
             .init_resource::<SelectionSegmentPool>()
+            .init_resource::<InputTextEngine>()
             .insert_non_send_resource(InputClipboard::new())
-            .insert_non_send_resource(InputTextEngine::default())
             .add_systems(
                 Update,
                 (

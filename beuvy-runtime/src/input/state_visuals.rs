@@ -1,4 +1,3 @@
-use super::metrics::node_global_rect;
 use crate::focus::UiFocused;
 use crate::input::{
     DisabledInput, InputCaret, InputCursorPosition, InputField, InputScrollOffset, InputSelection,
@@ -69,19 +68,10 @@ pub(crate) fn sync_input_focus_visuals(
 pub(crate) fn sync_input_edit_visuals(
     mut commands: Commands,
     time: Res<Time>,
-    text_engine: NonSend<InputTextEngine>,
-    fields: Query<
-        (
-            Entity,
-            &InputField,
-            Has<DisabledInput>,
-            Has<UiFocused>,
-            &ComputedNode,
-            &UiGlobalTransform,
-        ),
-        With<InputField>,
-    >,
+    text_engine: Res<InputTextEngine>,
+    fields: Query<(Entity, &InputField, Has<DisabledInput>, Has<UiFocused>), With<InputField>>,
     text_nodes: Query<&ComputedTextBlock, With<crate::input::InputText>>,
+    viewports: Query<&ComputedNode, With<crate::input::InputViewport>>,
     mut visuals: ParamSet<(
         Query<(&mut InputScrollOffset, &mut Node)>,
         Query<(&mut Node, &mut Visibility), With<InputSelection>>,
@@ -90,78 +80,83 @@ pub(crate) fn sync_input_edit_visuals(
     )>,
     mut segment_pool: ResMut<SelectionSegmentPool>,
 ) {
-    for (entity, field, disabled, focused, input_computed, input_transform) in &fields {
+    for (entity, field, disabled, focused) in &fields {
         if matches!(field.input_type, InputType::Range) {
             continue;
         }
-        let Some(text_entity) = field.text_entity else {
+        let (Some(viewport_entity), Some(text_entity)) = (field.viewport_entity, field.text_entity)
+        else {
             continue;
         };
         let Ok(block) = text_nodes.get(text_entity) else {
             continue;
         };
-        let display_text = field.edit_state.display_text_string(&field.placeholder);
+        let Ok(viewport_computed) = viewports.get(viewport_entity) else {
+            continue;
+        };
 
-        let input_rect = node_global_rect(input_computed, input_transform);
-        let input_scale = input_computed.inverse_scale_factor();
         let caret_width = input_caret_width();
-        let input_inset = input_computed.content_inset();
-        let layout_params =
-            crate::input::text_engine::input_layout_params(input_computed, field.is_multiline());
-        let input_content_width = layout_params.width;
-        let input_content_height = layout_params.height;
-        let text_layout = text_engine.layout(&display_text.text, block);
+        let inverse_scale_factor = viewport_computed.inverse_scale_factor();
+        let viewport_size = viewport_computed.size() * inverse_scale_factor;
+        let viewport_width = viewport_size.x.max(0.0);
+        let viewport_height = viewport_size.y.max(0.0);
+        let text_layout = text_engine.layout(block, inverse_scale_factor);
         let text_size = text_layout.size();
         let caret_byte = field.edit_state.display_caret_byte();
         let caret_rect = text_layout.caret_rect(caret_byte);
         let raw_caret_x = caret_rect.x;
-        let caret_line_x = caret_rect.x;
         let caret_line_top = caret_rect.top;
         let caret_line_height = caret_rect.height;
+        let content_top = if field.is_multiline() {
+            0.0
+        } else {
+            ((viewport_height - text_size.y) * 0.5).max(0.0)
+        };
 
         let mut scroll_x = 0.0;
         let mut scroll_y = 0.0;
         if let Ok((mut scroll_offset, mut text_node)) = visuals.p0().get_mut(text_entity) {
             if focused && !disabled {
-                let max_offset_x = (text_size.x - input_content_width).max(0.0);
+                let max_offset_x = (text_size.x - viewport_width).max(0.0);
                 if raw_caret_x < scroll_offset.x {
                     scroll_offset.x = raw_caret_x.max(0.0);
-                } else if raw_caret_x > scroll_offset.x + input_content_width {
-                    scroll_offset.x = (raw_caret_x - input_content_width).max(0.0);
+                } else if raw_caret_x > scroll_offset.x + viewport_width {
+                    scroll_offset.x = (raw_caret_x - viewport_width).max(0.0);
                 }
                 scroll_offset.x = scroll_offset.x.min(max_offset_x);
                 if field.is_multiline() {
-                    let max_offset_y = (text_size.y - input_content_height).max(0.0);
+                    let max_offset_y = (text_size.y - viewport_height).max(0.0);
                     if caret_line_top < scroll_offset.y {
                         scroll_offset.y = caret_line_top.max(0.0);
-                    } else if caret_line_top + caret_line_height
-                        > scroll_offset.y + input_content_height
+                    } else if caret_line_top + caret_line_height > scroll_offset.y + viewport_height
                     {
                         scroll_offset.y =
-                            (caret_line_top + caret_line_height - input_content_height).max(0.0);
+                            (caret_line_top + caret_line_height - viewport_height).max(0.0);
                     }
                     scroll_offset.y = scroll_offset.y.min(max_offset_y);
-                    text_node.top = Val::Px(-scroll_offset.y);
                 }
-                text_node.left = Val::Px(-scroll_offset.x);
             }
             scroll_x = scroll_offset.x;
             scroll_y = scroll_offset.y;
+            text_node.left = Val::Px(-scroll_x);
+            text_node.top = Val::Px(content_top - scroll_y);
         }
-        let text_origin = Vec2::new(
-            input_inset.min_inset.x - scroll_x,
-            input_inset.min_inset.y - scroll_y,
-        );
-        let caret_x = text_origin.x + caret_line_x;
-        let caret_top = text_origin.y + caret_line_top;
+        let scrolled_caret =
+            crate::input::text_engine::scroll_caret_rect(caret_rect, Vec2::new(scroll_x, scroll_y));
+        let caret_x = scrolled_caret.x;
+        let caret_top = content_top + scrolled_caret.top;
         let caret_center_y = caret_top + caret_line_height * 0.5;
 
         if let Some(selection_entity) = field.selection_entity {
             if let Ok((mut node, mut visibility)) = visuals.p1().get_mut(selection_entity) {
                 if let Some(range) = field.edit_state.selection_range() {
-                    let rects = text_layout.selection_rects(range.start, range.end);
-                    node.left = Val::Px(text_origin.x);
-                    node.top = Val::Px(text_origin.y);
+                    let raw_rects = text_layout.selection_rects(range.start, range.end);
+                    let rects = crate::input::text_engine::scroll_selection_rects(
+                        &raw_rects,
+                        Vec2::new(scroll_x, scroll_y),
+                    );
+                    node.left = Val::Px(0.0);
+                    node.top = Val::Px(0.0);
                     node.width = Val::Px(0.0);
                     node.height = Val::Px(0.0);
                     *visibility = if rects.is_empty() {
@@ -182,7 +177,7 @@ pub(crate) fn sync_input_edit_visuals(
                         segment_count += 1;
                         if let Some((left, top, width, height)) = rects.get(assigned).copied() {
                             segment_node.left = Val::Px(left);
-                            segment_node.top = Val::Px(top);
+                            segment_node.top = Val::Px(content_top + top);
                             segment_node.width = Val::Px(width);
                             segment_node.height = Val::Px(height.max(0.0));
                             *segment_visibility = if width > 0.0 {
@@ -248,7 +243,7 @@ pub(crate) fn sync_input_edit_visuals(
         if focused && !disabled {
             if let Ok(mut entity_commands) = commands.get_entity(entity) {
                 entity_commands.try_insert(InputCursorPosition {
-                    x: (input_rect.min.x * input_scale + caret_x).max(0.0),
+                    x: caret_x.max(0.0),
                     y: caret_center_y.max(0.0),
                 });
             }

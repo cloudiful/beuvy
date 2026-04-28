@@ -38,8 +38,9 @@ fn input_width_for_chars(size_chars: usize) -> f32 {
 pub(crate) fn input_text_node() -> Node {
     Node {
         display: Display::Block,
-        position_type: PositionType::Relative,
-        flex_grow: 1.0,
+        position_type: PositionType::Absolute,
+        left: Val::Px(0.0),
+        top: Val::Px(0.0),
         min_width: Val::Px(0.0),
         ..default()
     }

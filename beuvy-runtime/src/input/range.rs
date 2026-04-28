@@ -332,6 +332,7 @@ mod tests {
             name: "range".to_string(),
             input_type: super::super::InputType::Range,
             placeholder: String::new(),
+            viewport_entity: None,
             text_entity: None,
             selection_entity: None,
             caret_entity: None,
