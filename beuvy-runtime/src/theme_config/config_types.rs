@@ -440,7 +440,7 @@ impl Default for InputConfig {
     fn default() -> Self {
         Self {
             caret_width: 2.0,
-            caret_color: ThemeColor::hex("#A6FFBCFF"),
+            caret_color: ThemeColor::hex("#111827FF"),
             selection_color: ThemeColor::hex("#3B73F52E"),
         }
     }

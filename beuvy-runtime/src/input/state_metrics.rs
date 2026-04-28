@@ -418,7 +418,8 @@ fn glyph_trailing_x(layout: &TextLayoutInfo, text: &str, index: usize, scale: f3
         return glyph_left_x(next, scale);
     }
 
-    if glyph_text(text, glyph).chars().all(char::is_whitespace) {
+    let glyph_text = glyph_text(text, glyph);
+    if !glyph_text.is_empty() && glyph_text.chars().all(char::is_whitespace) {
         if let Some(previous) = previous_contiguous_glyph(glyphs, index, glyph) {
             let previous_left = glyph_left_x(previous, scale);
             let current_left = glyph_left_x(glyph, scale);
@@ -530,6 +531,15 @@ mod tests {
 
         assert_eq!(text_x_for_byte(&layout, "11", 0), 0.0);
         assert_eq!(text_x_for_byte(&layout, "11", 2), 21.0);
+    }
+
+    #[test]
+    fn empty_glyph_text_does_not_fallback_to_layout_edge() {
+        let mut layout = layout_with_glyphs(&[(0, 1, 8.0, 8.0), (99, 1, 18.0, 6.0)]);
+        layout.run_geometry = vec![run_geometry(0.0, 0.0, 80.0, 20.0)];
+        layout.size.x = 80.0;
+
+        assert_eq!(text_x_for_byte(&layout, "1", 100), 21.0);
     }
 
     #[test]
