@@ -85,7 +85,9 @@ pub(super) fn surrounding_word_bounds(text: &str, offset: usize) -> (usize, usiz
     if text.is_empty() {
         return (0, 0);
     }
-    if let Some((_, ch)) = current_char(text, offset) && ch.is_whitespace() {
+    if let Some((_, ch)) = current_char(text, offset)
+        && ch.is_whitespace()
+    {
         let start = previous_word_boundary(text, offset);
         let end = next_word_boundary(text, offset);
         return (start, end);

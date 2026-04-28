@@ -16,5 +16,6 @@ categories = ["game-development", "gui"]
 arboard = { version = "3", default-features = false }
 bevy = { workspace = true }
 bevy-localization = { workspace = true }
+cosmic-text = "=0.16.0"
 serde = { workspace = true }
 unicode-segmentation = "1"

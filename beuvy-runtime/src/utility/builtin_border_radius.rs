@@ -2,8 +2,8 @@ use super::size_spacing::{
     merge_rect, parse_numeric_value, rect_all, rect_bottom, rect_left, rect_right, rect_top,
     rect_x, rect_y, unwrap_arbitrary_value,
 };
-use crate::utility::{ParseUtilityError, UtilityRect, UtilityStylePatch, UtilityVal};
 use crate::theme_config::{UiThemeConfig, resolve_theme_numeric_value_in};
+use crate::utility::{ParseUtilityError, UtilityRect, UtilityStylePatch, UtilityVal};
 
 pub(super) fn apply_border_radius_utility_token(
     config: &UiThemeConfig,

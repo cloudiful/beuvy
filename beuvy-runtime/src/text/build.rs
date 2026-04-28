@@ -128,11 +128,8 @@ mod tests {
         app.add_plugins(AssetPlugin::default());
         app.insert_resource(FontResource::default());
 
-        let mut system_state: SystemState<(
-            Commands,
-            Res<AssetServer>,
-            Option<Res<FontResource>>,
-        )> = SystemState::new(app.world_mut());
+        let mut system_state: SystemState<(Commands, Res<AssetServer>, Option<Res<FontResource>>)> =
+            SystemState::new(app.world_mut());
         let (commands, asset_server, font_resource) = system_state.get_mut(app.world_mut());
         setup(commands, asset_server, font_resource);
         system_state.apply(app.world_mut());

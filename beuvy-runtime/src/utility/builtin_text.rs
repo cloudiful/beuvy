@@ -1,6 +1,6 @@
 use super::size_spacing::parse_numeric_value;
-use crate::utility::{ParseUtilityError, UtilityVal};
 use crate::theme_config::{UiThemeConfig, resolve_theme_numeric_value_in};
+use crate::utility::{ParseUtilityError, UtilityVal};
 
 pub(super) fn parse_text_size_token(
     config: &UiThemeConfig,
@@ -54,7 +54,11 @@ fn parse_text_size_value(
     token: &str,
     raw: &str,
 ) -> Result<f32, ParseUtilityError> {
-    match parse_numeric_value(config, token, super::size_spacing::unwrap_arbitrary_value(raw))? {
+    match parse_numeric_value(
+        config,
+        token,
+        super::size_spacing::unwrap_arbitrary_value(raw),
+    )? {
         UtilityVal::Px(value) => Ok(value),
         UtilityVal::Percent(_) | UtilityVal::Vw(_) | UtilityVal::Vh(_) | UtilityVal::Auto => {
             Err(ParseUtilityError::new(token, "invalid text size value"))

@@ -1,16 +1,14 @@
-use super::metrics::{
-    caret_geometry_for_byte, node_global_rect, selection_rects_for_range, text_x_for_byte,
-};
+use super::metrics::node_global_rect;
 use crate::focus::UiFocused;
 use crate::input::{
     DisabledInput, InputCaret, InputCursorPosition, InputField, InputScrollOffset, InputSelection,
-    InputSelectionSegment, InputText, InputType, SelectionSegmentPool,
+    InputSelectionSegment, InputTextEngine, InputType, SelectionSegmentPool,
 };
 use crate::style::{input_caret_width, input_selection_color};
 use bevy::math::Rect;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use bevy::text::TextLayoutInfo;
+use bevy::text::ComputedTextBlock;
 use bevy::window::PrimaryWindow;
 
 pub(crate) fn sync_input_focus_visuals(
@@ -71,6 +69,7 @@ pub(crate) fn sync_input_focus_visuals(
 pub(crate) fn sync_input_edit_visuals(
     mut commands: Commands,
     time: Res<Time>,
+    text_engine: NonSend<InputTextEngine>,
     fields: Query<
         (
             Entity,
@@ -82,7 +81,7 @@ pub(crate) fn sync_input_edit_visuals(
         ),
         With<InputField>,
     >,
-    text_nodes: Query<&TextLayoutInfo, With<InputText>>,
+    text_nodes: Query<&ComputedTextBlock, With<crate::input::InputText>>,
     mut visuals: ParamSet<(
         Query<(&mut InputScrollOffset, &mut Node)>,
         Query<(&mut Node, &mut Visibility), With<InputSelection>>,
@@ -98,37 +97,33 @@ pub(crate) fn sync_input_edit_visuals(
         let Some(text_entity) = field.text_entity else {
             continue;
         };
-        let display_text = field.edit_state.display_text_string(&field.placeholder);
-        let Ok(layout) = text_nodes.get(text_entity) else {
+        let Ok(block) = text_nodes.get(text_entity) else {
             continue;
         };
+        let display_text = field.edit_state.display_text_string(&field.placeholder);
 
         let input_rect = node_global_rect(input_computed, input_transform);
         let input_scale = input_computed.inverse_scale_factor();
         let caret_width = input_caret_width();
         let input_inset = input_computed.content_inset();
-        let input_content_width = (input_computed.size().x * input_scale
-            - input_inset.min_inset.x
-            - input_inset.max_inset.x)
-            .max(0.0);
-        let input_content_height = (input_computed.size().y * input_scale
-            - input_inset.min_inset.y
-            - input_inset.max_inset.y)
-            .max(0.0);
+        let layout_params =
+            crate::input::text_engine::input_layout_params(input_computed, field.is_multiline());
+        let input_content_width = layout_params.width;
+        let input_content_height = layout_params.height;
+        let text_layout = text_engine.layout(&display_text.text, block);
+        let text_size = text_layout.size();
         let caret_byte = field.edit_state.display_caret_byte();
-        let raw_caret_x = text_x_for_byte(layout, &display_text.text, caret_byte);
-        let (caret_line_x, caret_line_top, caret_line_height) = if field.is_multiline() {
-            caret_geometry_for_byte(layout, &display_text.text, caret_byte)
-                .unwrap_or((raw_caret_x, 0.0, layout.size.y.max(0.0)))
-        } else {
-            (raw_caret_x, 0.0, layout.size.y.max(0.0))
-        };
+        let caret_rect = text_layout.caret_rect(caret_byte);
+        let raw_caret_x = caret_rect.x;
+        let caret_line_x = caret_rect.x;
+        let caret_line_top = caret_rect.top;
+        let caret_line_height = caret_rect.height;
 
         let mut scroll_x = 0.0;
         let mut scroll_y = 0.0;
         if let Ok((mut scroll_offset, mut text_node)) = visuals.p0().get_mut(text_entity) {
             if focused && !disabled {
-                let max_offset_x = (layout.size.x - input_content_width).max(0.0);
+                let max_offset_x = (text_size.x - input_content_width).max(0.0);
                 if raw_caret_x < scroll_offset.x {
                     scroll_offset.x = raw_caret_x.max(0.0);
                 } else if raw_caret_x > scroll_offset.x + input_content_width {
@@ -136,7 +131,7 @@ pub(crate) fn sync_input_edit_visuals(
                 }
                 scroll_offset.x = scroll_offset.x.min(max_offset_x);
                 if field.is_multiline() {
-                    let max_offset_y = (layout.size.y - input_content_height).max(0.0);
+                    let max_offset_y = (text_size.y - input_content_height).max(0.0);
                     if caret_line_top < scroll_offset.y {
                         scroll_offset.y = caret_line_top.max(0.0);
                     } else if caret_line_top + caret_line_height
@@ -164,14 +159,7 @@ pub(crate) fn sync_input_edit_visuals(
         if let Some(selection_entity) = field.selection_entity {
             if let Ok((mut node, mut visibility)) = visuals.p1().get_mut(selection_entity) {
                 if let Some(range) = field.edit_state.selection_range() {
-                    let rects = if field.is_multiline() {
-                        selection_rects_for_range(layout, &display_text.text, range.start, range.end)
-                    } else {
-                        let start_x =
-                            text_x_for_byte(layout, &display_text.text, range.start);
-                        let end_x = text_x_for_byte(layout, &display_text.text, range.end);
-                        vec![(start_x, 0.0, (end_x - start_x).max(0.0), caret_line_height)]
-                    };
+                    let rects = text_layout.selection_rects(range.start, range.end);
                     node.left = Val::Px(text_origin.x);
                     node.top = Val::Px(text_origin.y);
                     node.width = Val::Px(0.0);

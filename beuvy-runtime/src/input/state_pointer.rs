@@ -1,25 +1,29 @@
-use super::metrics::{node_logical_rect, text_byte_for_point, text_byte_for_x};
+use super::metrics::node_logical_rect;
 use super::{keep_caret_visible, shift_pressed};
 use crate::input::{
-    DisabledInput, InputClickState, InputField, InputValueChangedMessage, clear_input_focus,
-    set_input_focus,
+    DisabledInput, InputClickState, InputField, InputTextEngine, InputValueChangedMessage,
+    clear_input_focus, set_input_focus,
 };
 use crate::text::FontResource;
 use bevy::input::{ButtonInput, keyboard::KeyCode};
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy::text::TextLayoutInfo;
+use bevy::text::ComputedTextBlock;
 
 pub(crate) fn input_click(
     mut event: On<Pointer<Click>>,
     mut input_focus: ResMut<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    text_engine: NonSend<InputTextEngine>,
     mut fields: Query<
         (&mut InputField, &mut InputClickState),
         (With<InputField>, Without<DisabledInput>),
     >,
-    text_nodes: Query<(&TextLayoutInfo, &ComputedNode, &UiGlobalTransform), With<crate::input::InputText>>,
+    text_nodes: Query<
+        (&ComputedTextBlock, &ComputedNode, &UiGlobalTransform),
+        With<crate::input::InputText>,
+    >,
 ) {
     let Ok((mut field, mut click_state)) = fields.get_mut(event.entity) else {
         return;
@@ -29,7 +33,7 @@ pub(crate) fn input_click(
     let Some(text_entity) = field.text_entity else {
         return;
     };
-    let Ok((layout, computed, transform)) = text_nodes.get(text_entity) else {
+    let Ok((block, computed, transform)) = text_nodes.get(text_entity) else {
         return;
     };
 
@@ -46,11 +50,7 @@ pub(crate) fn input_click(
     let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
     let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
     let display_text = field.edit_state.display_text_string(&field.placeholder);
-    let byte = if field.is_multiline() {
-        text_byte_for_point(layout, &display_text.text, local_x, local_y)
-    } else {
-        text_byte_for_x(layout, &display_text.text, local_x)
-    };
+    let byte = text_engine.hit_byte(&display_text.text, block, local_x, local_y);
     match click_state.click_count {
         1 => field.edit_state.set_caret(byte, shift_pressed(&keys)),
         2 => {
@@ -68,8 +68,12 @@ pub(crate) fn input_drag_start(
     mut event: On<Pointer<DragStart>>,
     mut input_focus: ResMut<InputFocus>,
     time: Res<Time>,
+    text_engine: NonSend<InputTextEngine>,
     mut fields: Query<&mut InputField, (With<InputField>, Without<DisabledInput>)>,
-    text_nodes: Query<(&TextLayoutInfo, &ComputedNode, &UiGlobalTransform), With<crate::input::InputText>>,
+    text_nodes: Query<
+        (&ComputedTextBlock, &ComputedNode, &UiGlobalTransform),
+        With<crate::input::InputText>,
+    >,
 ) {
     let Ok(mut field) = fields.get_mut(event.entity) else {
         return;
@@ -78,7 +82,7 @@ pub(crate) fn input_drag_start(
     let Some(text_entity) = field.text_entity else {
         return;
     };
-    let Ok((layout, computed, transform)) = text_nodes.get(text_entity) else {
+    let Ok((block, computed, transform)) = text_nodes.get(text_entity) else {
         return;
     };
 
@@ -86,11 +90,7 @@ pub(crate) fn input_drag_start(
     let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
     let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
     let display_text = field.edit_state.display_text_string(&field.placeholder);
-    let byte = if field.is_multiline() {
-        text_byte_for_point(layout, &display_text.text, local_x, local_y)
-    } else {
-        text_byte_for_x(layout, &display_text.text, local_x)
-    };
+    let byte = text_engine.hit_byte(&display_text.text, block, local_x, local_y);
     field.edit_state.set_caret(byte, false);
     field.preferred_caret_x = Some(local_x);
     keep_caret_visible(&mut field, &time);
@@ -100,8 +100,12 @@ pub(crate) fn input_drag_start(
 pub(crate) fn input_drag(
     mut event: On<Pointer<Drag>>,
     time: Res<Time>,
+    text_engine: NonSend<InputTextEngine>,
     mut fields: Query<&mut InputField, (With<InputField>, Without<DisabledInput>)>,
-    text_nodes: Query<(&TextLayoutInfo, &ComputedNode, &UiGlobalTransform), With<crate::input::InputText>>,
+    text_nodes: Query<
+        (&ComputedTextBlock, &ComputedNode, &UiGlobalTransform),
+        With<crate::input::InputText>,
+    >,
 ) {
     let Ok(mut field) = fields.get_mut(event.entity) else {
         return;
@@ -109,7 +113,7 @@ pub(crate) fn input_drag(
     let Some(text_entity) = field.text_entity else {
         return;
     };
-    let Ok((layout, computed, transform)) = text_nodes.get(text_entity) else {
+    let Ok((block, computed, transform)) = text_nodes.get(text_entity) else {
         return;
     };
 
@@ -117,11 +121,7 @@ pub(crate) fn input_drag(
     let local_x = (event.pointer_location.position.x - logical_rect.min.x).max(0.0);
     let local_y = (event.pointer_location.position.y - logical_rect.min.y).max(0.0);
     let display_text = field.edit_state.display_text_string(&field.placeholder);
-    let byte = if field.is_multiline() {
-        text_byte_for_point(layout, &display_text.text, local_x, local_y)
-    } else {
-        text_byte_for_x(layout, &display_text.text, local_x)
-    };
+    let byte = text_engine.hit_byte(&display_text.text, block, local_x, local_y);
     field.edit_state.set_caret(byte, true);
     field.preferred_caret_x = Some(local_x);
     keep_caret_visible(&mut field, &time);
@@ -150,7 +150,12 @@ pub(crate) fn clear_input_focus_on_foreign_click(
         }
         if let Ok((mut field, disabled)) = fields.get_mut(active) {
             if super::commit_numeric_field(active, &mut field, &mut value_changed) {
-                crate::input::text::update_input_text(&mut commands, &font_resource, &field, disabled);
+                crate::input::text::update_input_text(
+                    &mut commands,
+                    &font_resource,
+                    &field,
+                    disabled,
+                );
             }
         }
         clear_input_focus(&mut input_focus);

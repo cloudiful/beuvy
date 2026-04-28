@@ -1,10 +1,10 @@
 use super::{
     can_insert_char, command_modifier_pressed, commit_numeric_field, control_pressed,
-    metrics::move_byte_vertically, step_number_field, sync_display_change, word_modifier_pressed,
+    step_number_field, sync_display_change, word_modifier_pressed,
 };
 use crate::input::{
-    DisabledInput, InputClipboard, InputField, InputValueChangedMessage, active_input_entity,
-    key_is_submit, push_value_changed,
+    DisabledInput, InputClipboard, InputField, InputTextEngine, InputValueChangedMessage,
+    active_input_entity, key_is_submit, push_value_changed,
 };
 use crate::text::FontResource;
 use bevy::input::ButtonState;
@@ -14,6 +14,7 @@ use bevy::input::{
 };
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::text::ComputedTextBlock;
 
 fn filter_pasted_text(field: &InputField, text: &str) -> String {
     let is_multiline = field.is_multiline();
@@ -32,13 +33,14 @@ pub(crate) fn handle_keyboard_input(
     mut keyboard_inputs: MessageReader<KeyboardInput>,
     fields_marker: Query<(), With<InputField>>,
     mut fields: Query<(Entity, &mut InputField, Has<DisabledInput>)>,
-    text_nodes: Query<&bevy::text::TextLayoutInfo, With<crate::input::InputText>>,
+    text_nodes: Query<&ComputedTextBlock, With<crate::input::InputText>>,
     input_focus: Res<InputFocus>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     font_resource: Res<FontResource>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
     mut clipboard: NonSendMut<InputClipboard>,
+    text_engine: NonSend<InputTextEngine>,
 ) {
     let Some(active) = active_input_entity(&input_focus, &fields_marker) else {
         return;
@@ -158,12 +160,12 @@ pub(crate) fn handle_keyboard_input(
             (Key::ArrowUp, _) => {
                 if field.is_multiline() {
                     if let Some(text_entity) = field.text_entity {
-                        if let Ok(layout) = text_nodes.get(text_entity) {
+                        if let Ok(block) = text_nodes.get(text_entity) {
                             let display_text =
                                 field.edit_state.display_text_string(&field.placeholder);
-                            if let Some((byte, preferred_x)) = move_byte_vertically(
-                                layout,
+                            if let Some((byte, preferred_x)) = text_engine.move_byte_vertically(
                                 &display_text.text,
+                                block,
                                 field.edit_state.display_caret_byte(),
                                 field.preferred_caret_x,
                                 -1,
@@ -183,12 +185,12 @@ pub(crate) fn handle_keyboard_input(
             (Key::ArrowDown, _) => {
                 if field.is_multiline() {
                     if let Some(text_entity) = field.text_entity {
-                        if let Ok(layout) = text_nodes.get(text_entity) {
+                        if let Ok(block) = text_nodes.get(text_entity) {
                             let display_text =
                                 field.edit_state.display_text_string(&field.placeholder);
-                            if let Some((byte, preferred_x)) = move_byte_vertically(
-                                layout,
+                            if let Some((byte, preferred_x)) = text_engine.move_byte_vertically(
                                 &display_text.text,
+                                block,
                                 field.edit_state.display_caret_byte(),
                                 field.preferred_caret_x,
                                 1,
@@ -213,8 +215,7 @@ pub(crate) fn handle_keyboard_input(
                     pending_value_message |= edited;
                     display_changed |= edited;
                 } else {
-                    let committed =
-                        commit_numeric_field(entity, &mut field, &mut value_changed);
+                    let committed = commit_numeric_field(entity, &mut field, &mut value_changed);
                     display_changed |= committed;
                     if committed {
                         pending_value_message = false;

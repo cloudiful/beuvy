@@ -233,9 +233,7 @@ fn range_track_drag(
     if disabled {
         return;
     }
-    let range_state = range_states
-        .get(track.input)
-        .expect("range state missing");
+    let range_state = range_states.get(track.input).expect("range state missing");
     let thumb_size = thumbs
         .get(range_state.thumb)
         .map(computed_node_logical_width)

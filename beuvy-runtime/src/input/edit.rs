@@ -329,12 +329,8 @@ impl TextEditState {
         if text.is_empty() && cursor.is_none() {
             self.preedit = None;
         } else {
-            let clamped_cursor = cursor.map(|(start, end)| {
-                (
-                    start.min(text.len()),
-                    end.min(text.len()),
-                )
-            });
+            let clamped_cursor =
+                cursor.map(|(start, end)| (start.min(text.len()), end.min(text.len())));
             self.preedit = Some(PreeditState {
                 text,
                 cursor: clamped_cursor,

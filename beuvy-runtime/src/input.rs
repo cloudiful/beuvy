@@ -4,6 +4,7 @@ mod edit;
 mod range;
 mod state;
 mod text;
+mod text_engine;
 mod value;
 
 pub use text::{set_input_disabled, set_input_value};
@@ -11,10 +12,12 @@ pub use text::{set_input_disabled, set_input_value};
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::ui::UiSystems;
 use bevy::window::Ime;
 
 pub(crate) use clipboard::{InputClipboard, UndoStack};
 pub use edit::{PreeditState, SelectionDirection, TextEditState};
+pub(crate) use text_engine::InputTextEngine;
 
 pub struct InputPlugin;
 
@@ -199,6 +202,7 @@ impl Plugin for InputPlugin {
             .init_resource::<InputFocus>()
             .init_resource::<SelectionSegmentPool>()
             .insert_non_send_resource(InputClipboard::new())
+            .insert_non_send_resource(InputTextEngine::default())
             .add_systems(
                 Update,
                 (
@@ -216,7 +220,10 @@ impl Plugin for InputPlugin {
                     state::sync_input_ime_state,
                 ),
             )
-            .add_systems(PostUpdate, state::sync_input_edit_visuals);
+            .add_systems(
+                PostUpdate,
+                state::sync_input_edit_visuals.after(UiSystems::PostLayout),
+            );
     }
 }
 

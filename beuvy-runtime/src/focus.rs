@@ -115,9 +115,6 @@ mod tests {
     #[test]
     fn focus_only_outline_ignores_hover_state() {
         assert_eq!(outline_color(true, false, true), Color::NONE);
-        assert_eq!(
-            outline_color(true, true, true),
-            ui_focus_outline_color()
-        );
+        assert_eq!(outline_color(true, true, true), ui_focus_outline_color());
     }
 }

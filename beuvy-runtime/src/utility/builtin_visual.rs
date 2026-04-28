@@ -1,10 +1,10 @@
 use super::border_radius::parse_border_width;
 use super::text::parse_text_size_token_value;
+use crate::theme_config::UiThemeConfig;
 use crate::utility::{
     ParseUtilityError, UtilityTransitionProperty, UtilityTransitionTiming, UtilityVal,
     UtilityVisualStylePatch,
 };
-use crate::theme_config::UiThemeConfig;
 
 pub(super) fn apply_visual_utility_token(
     config: &UiThemeConfig,

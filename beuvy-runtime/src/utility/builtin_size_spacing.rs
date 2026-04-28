@@ -1,5 +1,5 @@
-use crate::utility::{ParseUtilityError, UtilityRect, UtilityStylePatch, UtilityVal};
 use crate::theme_config::{UiThemeConfig, resolve_theme_numeric_value_in};
+use crate::utility::{ParseUtilityError, UtilityRect, UtilityStylePatch, UtilityVal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Axis {
@@ -55,11 +55,17 @@ pub(super) fn apply_size_spacing_utility_token(
         return Ok(true);
     }
     if let Some((target, rect)) = padding_token(token) {
-        merge_rect(&mut patch.padding, rect(parse_spacing_value(config, token, target)?));
+        merge_rect(
+            &mut patch.padding,
+            rect(parse_spacing_value(config, token, target)?),
+        );
         return Ok(true);
     }
     if let Some((target, rect)) = margin_token(token) {
-        merge_rect(&mut patch.margin, rect(parse_margin_value(config, token, target)?));
+        merge_rect(
+            &mut patch.margin,
+            rect(parse_margin_value(config, token, target)?),
+        );
         return Ok(true);
     }
     if let Some(value) = token.strip_prefix("inset-x-") {
@@ -126,7 +132,10 @@ fn margin_token(token: &str) -> Option<(&str, RectFactory)> {
     )
 }
 
-fn match_prefix<'a>(token: &'a str, pairs: &[(&'static str, RectFactory)]) -> Option<(&'a str, RectFactory)> {
+fn match_prefix<'a>(
+    token: &'a str,
+    pairs: &[(&'static str, RectFactory)],
+) -> Option<(&'a str, RectFactory)> {
     for (prefix, rect) in pairs {
         if let Some(value) = token.strip_prefix(prefix) {
             return Some((value, *rect));

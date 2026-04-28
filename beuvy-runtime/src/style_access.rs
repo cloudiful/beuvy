@@ -1,7 +1,9 @@
+use crate::style::{
+    ButtonTheme, InteractionStatePalette, InteractionVisualTheme, PopupConfig, UiThemeConfig,
+};
 use crate::stylesheet::{
     StyleSheetError, default_style_sheet, parse_style_classes_with_sheet, runtime_style_sheet,
 };
-use crate::style::{ButtonTheme, InteractionStatePalette, InteractionVisualTheme, PopupConfig, UiThemeConfig};
 use crate::utility::UtilityStylePatch;
 use bevy::prelude::*;
 use bevy::ui::BoxShadow;
@@ -105,7 +107,12 @@ pub fn input_caret_width() -> f32 {
 }
 
 pub fn input_caret_color() -> Color {
-    runtime_style_sheet().config().control.input.caret_color.to_bevy()
+    runtime_style_sheet()
+        .config()
+        .control
+        .input
+        .caret_color
+        .to_bevy()
 }
 
 pub fn input_selection_color() -> Color {
@@ -118,15 +125,36 @@ pub fn input_selection_color() -> Color {
 }
 
 pub fn panel_surface_background() -> BackgroundColor {
-    BackgroundColor(runtime_style_sheet().config().panel.main.background.to_bevy())
+    BackgroundColor(
+        runtime_style_sheet()
+            .config()
+            .panel
+            .main
+            .background
+            .to_bevy(),
+    )
 }
 
 pub fn subtle_surface_background() -> BackgroundColor {
-    BackgroundColor(runtime_style_sheet().config().panel.subtle.background.to_bevy())
+    BackgroundColor(
+        runtime_style_sheet()
+            .config()
+            .panel
+            .subtle
+            .background
+            .to_bevy(),
+    )
 }
 
 pub fn prompt_surface_background() -> BackgroundColor {
-    BackgroundColor(runtime_style_sheet().config().panel.prompt.background.to_bevy())
+    BackgroundColor(
+        runtime_style_sheet()
+            .config()
+            .panel
+            .prompt
+            .background
+            .to_bevy(),
+    )
 }
 
 pub fn text_primary_color() -> Color {
