@@ -10,6 +10,14 @@
     @apply flex items-center justify-start min-h-[32px] overflow-visible;
 }
 
+@utility checkbox-root {
+    @apply flex items-center justify-center w-[18px] h-[18px] min-w-[18px] min-h-[18px] border-[var(--border-regular)] overflow-visible;
+}
+
+@utility radio-root {
+    @apply flex items-center justify-center w-[18px] h-[18px] min-w-[18px] min-h-[18px] rounded-pill border-[var(--border-regular)] overflow-visible;
+}
+
 @utility input-text {
     @apply text-control text-primary;
 }

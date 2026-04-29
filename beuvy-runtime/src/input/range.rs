@@ -331,6 +331,8 @@ mod tests {
         InputField {
             name: "range".to_string(),
             input_type: super::super::InputType::Range,
+            checked: false,
+            input_value: None,
             placeholder: String::new(),
             viewport_entity: None,
             text_entity: None,

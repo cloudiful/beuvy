@@ -253,7 +253,12 @@ fn radio_field_value_sync_marks_selected_option() {
 
     app.update();
 
-    assert_eq!(app.world().get::<InputField>(entity).map(|field| field.checked), Some(true));
+    assert_eq!(
+        app.world()
+            .get::<InputField>(entity)
+            .map(|field| field.checked),
+        Some(true)
+    );
 }
 
 #[test]

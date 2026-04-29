@@ -8,7 +8,7 @@ use super::controls::{
 };
 use super::state::{
     DeclarativeClassBindings, DeclarativeConditionalChainState, DeclarativeConditionalSubtree,
-    DeclarativeLabelForTarget, DeclarativeLocalState, DeclarativeNodeId,
+    DeclarativeLabelForTarget, DeclarativeLabelNode, DeclarativeLocalState, DeclarativeNodeId,
     DeclarativeOnClickAssignment, DeclarativeRootComputedLocals, DeclarativeRootViewModel,
     DeclarativeSelectTextBindings, DeclarativeUiSlot,
 };
@@ -373,7 +373,11 @@ fn build_spawned_node(
             ..
         } => {
             let (add_text, binding) = build_add_text(content, style, context);
-            entity.insert_component((add_text, apply_node_style(Node::default(), &DeclarativeNodeStyle::default())));
+            entity.insert_component((
+                add_text,
+                apply_node_style(Node::default(), &DeclarativeNodeStyle::default()),
+            ));
+            entity.insert_component(DeclarativeLabelNode);
             insert_runtime_visuals(entity, &style.visual_style, &style.state_visual_styles);
             if let Some(binding) = binding {
                 entity.insert_component(binding);

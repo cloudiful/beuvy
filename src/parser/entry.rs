@@ -6,12 +6,14 @@ pub fn parse_declarative_ui_asset(
     if !looks_like_sfc(raw) {
         let normalized = normalize_vue_shorthand(raw);
         let normalized = normalize_vue_condition_attrs(&normalized);
+        let normalized = normalize_bare_boolean_attrs(&normalized);
         return parse_legacy_fragment(&normalized);
     }
 
     let prepared = prepare_sfc_source(raw);
     let normalized = normalize_vue_shorthand(&prepared.xml);
     let normalized = normalize_vue_condition_attrs(&normalized);
+    let normalized = normalize_bare_boolean_attrs(&normalized);
     let wrapped = format!("<sfc-root>{normalized}</sfc-root>");
     let document = Document::parse(&wrapped)?;
     let root = document.root_element();
@@ -331,6 +333,93 @@ fn normalize_vue_condition_attrs(raw: &str) -> String {
     }
 
     output
+}
+
+fn normalize_bare_boolean_attrs(raw: &str) -> String {
+    const BOOLEAN_ATTRS: &[&str] = &["checked", "disabled", "selected", "multiple", "setup"];
+
+    let mut output = String::with_capacity(raw.len());
+    let chars = raw.chars().collect::<Vec<_>>();
+    let mut index = 0usize;
+    let mut in_tag = false;
+    let mut quote = None;
+
+    while index < chars.len() {
+        let ch = chars[index];
+        if let Some(active_quote) = quote {
+            output.push(ch);
+            if ch == active_quote {
+                quote = None;
+            }
+            index += 1;
+            continue;
+        }
+
+        match ch {
+            '"' | '\'' if in_tag => {
+                quote = Some(ch);
+                output.push(ch);
+                index += 1;
+            }
+            '<' => {
+                in_tag = true;
+                output.push(ch);
+                index += 1;
+            }
+            '>' => {
+                in_tag = false;
+                output.push(ch);
+                index += 1;
+            }
+            _ if in_tag => {
+                let previous = output.chars().last();
+                if let Some((name, consumed)) =
+                    bare_boolean_attr_at(&chars, index, previous, BOOLEAN_ATTRS)
+                {
+                    output.push_str(name);
+                    output.push_str("=\"\"");
+                    index += consumed;
+                } else {
+                    output.push(ch);
+                    index += 1;
+                }
+            }
+            _ => {
+                output.push(ch);
+                index += 1;
+            }
+        }
+    }
+
+    output
+}
+
+fn bare_boolean_attr_at<'a>(
+    chars: &[char],
+    index: usize,
+    previous: Option<char>,
+    names: &'a [&'a str],
+) -> Option<(&'a str, usize)> {
+    let boundary_before =
+        previous.is_none_or(|ch| ch.is_ascii_whitespace() || matches!(ch, '<' | '/'));
+    if !boundary_before {
+        return None;
+    }
+
+    for &name in names {
+        let name_chars = name.chars().collect::<Vec<_>>();
+        if chars.get(index..index + name_chars.len()) != Some(name_chars.as_slice()) {
+            continue;
+        }
+        let next = chars.get(index + name_chars.len()).copied();
+        if matches!(next, Some(ch) if ch == '=' || ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':')) {
+            continue;
+        }
+        if matches!(next, Some(ch) if ch.is_ascii_whitespace() || matches!(ch, '>' | '/')) {
+            return Some((name, name_chars.len()));
+        }
+    }
+    None
 }
 
 fn is_bare_v_else_attr(chars: &[char], index: usize, previous: Option<char>) -> bool {

@@ -22,10 +22,10 @@ pub use spawn::{
     spawn_declarative_ui_tree_collect_slots, spawn_declarative_ui_tree_collect_slots_in_world,
 };
 pub use state::{
-    DeclarativeAppliedTemplateHotReload, DeclarativeClassBindings,
-    DeclarativeCheckedBinding, DeclarativeConditionalChainState,
-    DeclarativeConditionalSubtree, DeclarativeDisabledExpr, DeclarativeEventBindings,
-    DeclarativeLabelForTarget, DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
+    DeclarativeAppliedTemplateHotReload, DeclarativeCheckedBinding, DeclarativeClassBindings,
+    DeclarativeConditionalChainState, DeclarativeConditionalSubtree, DeclarativeDisabledExpr,
+    DeclarativeEventBindings, DeclarativeLabelForTarget, DeclarativeLabelNode,
+    DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
     DeclarativeNodeStyleBindingComponent, DeclarativeOnClickAssignment, DeclarativeRefBinding,
     DeclarativeRefRects, DeclarativeResolvedRef, DeclarativeRootComputedLocals,
     DeclarativeRootUiAsset, DeclarativeRootViewModel, DeclarativeShowExpr, DeclarativeTextBinding,

@@ -97,6 +97,7 @@ pub(crate) fn parse_mustache_expr(raw: &str) -> Option<&str> {
 pub(crate) fn bound_attr<'a>(node: XmlNode<'a, 'a>, name: &str) -> Option<&'a str> {
     let bound_name = format!("v-bind-{name}");
     node.attribute(bound_name.as_str())
+        .or_else(|| node.attribute(format!(":{name}").as_str()))
 }
 
 pub(crate) fn model_attr<'a>(node: XmlNode<'a, 'a>) -> Option<&'a str> {

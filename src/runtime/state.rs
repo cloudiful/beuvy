@@ -40,6 +40,9 @@ pub struct DeclarativeRefBinding(pub DeclarativeRefSource);
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
 pub struct DeclarativeLabelForTarget(pub String);
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeclarativeLabelNode;
+
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct DeclarativeNodeStyleBindingComponent(pub DeclarativeNodeStyleBinding);
 

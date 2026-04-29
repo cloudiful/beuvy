@@ -1,8 +1,7 @@
 use crate::focus::UiFocused;
 use crate::input::{
-    DisabledInput, InputCaret, InputCursorPosition, InputField, InputIndicator,
-    InputScrollOffset, InputSelection, InputSelectionSegment, InputTextEngine, InputType,
-    SelectionSegmentPool,
+    DisabledInput, InputCaret, InputCursorPosition, InputField, InputIndicator, InputScrollOffset,
+    InputSelection, InputSelectionSegment, InputTextEngine, InputType, SelectionSegmentPool,
 };
 use crate::style::{input_caret_width, input_selection_color};
 use bevy::math::Rect;

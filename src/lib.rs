@@ -66,10 +66,10 @@ pub use parser::{
 };
 #[cfg(feature = "declarative")]
 pub use runtime::{
-    DeclarativeAppliedTemplateHotReload, DeclarativeClassBindings,
-    DeclarativeCheckedBinding, DeclarativeConditionalChainState,
-    DeclarativeConditionalSubtree, DeclarativeDisabledExpr, DeclarativeEventBindings,
-    DeclarativeLabelForTarget, DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
+    DeclarativeAppliedTemplateHotReload, DeclarativeCheckedBinding, DeclarativeClassBindings,
+    DeclarativeConditionalChainState, DeclarativeConditionalSubtree, DeclarativeDisabledExpr,
+    DeclarativeEventBindings, DeclarativeLabelForTarget, DeclarativeLabelNode,
+    DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
     DeclarativeNodeStyleBindingComponent, DeclarativeOnClickAssignment, DeclarativeRefBinding,
     DeclarativeRefRects, DeclarativeResolvedRef, DeclarativeRootComputedLocals,
     DeclarativeRootUiAsset, DeclarativeRootViewModel, DeclarativeShowExpr, DeclarativeTextBinding,

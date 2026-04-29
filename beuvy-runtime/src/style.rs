@@ -24,8 +24,9 @@ pub use access::{
     resolve_class_patch_or_empty, resolve_classes_with_fallback, resolve_color_value,
     resolve_color_value_with_config, scrollbar_width, subtle_surface_background,
     tab_active_text_color, tab_border, tab_border_width, text_disabled_color,
-    text_placeholder_color, text_primary_color, text_secondary_color, ui_focus_outline_color,
-    ui_focus_outline_hover_color, ui_hover_outline_color, ui_theme,
+    text_placeholder_color, text_primary_color, text_secondary_color, checkbox_border_color,
+    checkbox_indicator_color, ui_focus_outline_color, ui_focus_outline_hover_color,
+    ui_hover_outline_color, ui_theme,
 };
 pub use apply::apply_utility_patch;
 pub use state_patch::{

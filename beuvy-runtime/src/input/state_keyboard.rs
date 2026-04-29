@@ -32,8 +32,10 @@ pub(crate) fn handle_keyboard_input(
     mut commands: Commands,
     mut keyboard_inputs: MessageReader<KeyboardInput>,
     fields_marker: Query<(), With<InputField>>,
-    mut fields: Query<(Entity, &mut InputField, Has<DisabledInput>)>,
-    radio_fields: Query<(Entity, &InputField), With<InputField>>,
+    mut fields: ParamSet<(
+        Query<(Entity, &mut InputField, Has<DisabledInput>)>,
+        Query<(Entity, &InputField), With<InputField>>,
+    )>,
     text_nodes: Query<&ComputedTextBlock, With<crate::input::InputText>>,
     viewports: Query<&ComputedNode, With<crate::input::InputViewport>>,
     input_focus: Res<InputFocus>,
@@ -56,7 +58,8 @@ pub(crate) fn handle_keyboard_input(
     let control_modifier = control_pressed(&keys);
 
     let disabled = {
-        let Ok((entity, mut field, disabled)) = fields.get_mut(active) else {
+        let mut query = fields.p0();
+        let Ok((entity, mut field, disabled)) = query.get_mut(active) else {
             return;
         };
         if disabled {
@@ -216,8 +219,12 @@ pub(crate) fn handle_keyboard_input(
                 (key, _) if key_is_submit(key) => {
                     if field.input_type == crate::input::InputType::Checkbox {
                         let next_checked = !field.checked;
-                        let changed =
-                            set_checkable_state(entity, &mut field, next_checked, &mut value_changed);
+                        let changed = set_checkable_state(
+                            entity,
+                            &mut field,
+                            next_checked,
+                            &mut value_changed,
+                        );
                         pending_value_message |= changed;
                         display_changed |= changed;
                     } else if field.input_type == crate::input::InputType::Radio {
@@ -233,7 +240,8 @@ pub(crate) fn handle_keyboard_input(
                         pending_value_message |= edited;
                         display_changed |= edited;
                     } else {
-                        let committed = commit_numeric_field(entity, &mut field, &mut value_changed);
+                        let committed =
+                            commit_numeric_field(entity, &mut field, &mut value_changed);
                         display_changed |= committed;
                         if committed {
                             pending_value_message = false;
@@ -260,7 +268,8 @@ pub(crate) fn handle_keyboard_input(
     };
 
     if let Some(group) = pending_radio_group {
-        let targets = radio_fields
+        let query = fields.p1();
+        let targets = query
             .iter()
             .filter_map(|(candidate_entity, candidate)| {
                 (candidate_entity != active
@@ -269,8 +278,9 @@ pub(crate) fn handle_keyboard_input(
                     .then_some(candidate_entity)
             })
             .collect::<Vec<_>>();
+        let mut query = fields.p0();
         for candidate_entity in targets {
-            if let Ok((_, mut candidate_field, _)) = fields.get_mut(candidate_entity) {
+            if let Ok((_, mut candidate_field, _)) = query.get_mut(candidate_entity) {
                 let changed = set_checkable_state(
                     candidate_entity,
                     &mut candidate_field,
@@ -284,14 +294,16 @@ pub(crate) fn handle_keyboard_input(
     }
 
     if display_changed {
-        if let Ok((_, mut field, _)) = fields.get_mut(active) {
+        let mut query = fields.p0();
+        if let Ok((_, mut field, _)) = query.get_mut(active) {
             if !field.is_checkable() {
                 sync_display_change(&mut commands, &font_resource, &mut field, disabled, &time);
             }
         }
     }
     if pending_value_message {
-        if let Ok((entity, field, _)) = fields.get_mut(active) {
+        let mut query = fields.p0();
+        if let Ok((entity, field, _)) = query.get_mut(active) {
             if !field.is_checkable() {
                 push_value_changed(&mut value_changed, entity, &field);
             }

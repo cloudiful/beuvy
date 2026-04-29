@@ -20,11 +20,13 @@ pub(crate) fn input_click(
     time: Res<Time>,
     text_engine: Res<InputTextEngine>,
     mut value_changed: MessageWriter<InputValueChangedMessage>,
-    mut fields: Query<
-        (&mut InputField, &mut InputClickState),
-        (With<InputField>, Without<DisabledInput>),
-    >,
-    sibling_fields: Query<(Entity, &InputField), With<InputField>>,
+    mut fields: ParamSet<(
+        Query<
+            (&mut InputField, &mut InputClickState),
+            (With<InputField>, Without<DisabledInput>),
+        >,
+        Query<(Entity, &InputField), With<InputField>>,
+    )>,
     text_blocks: Query<(&ComputedTextBlock, &InputScrollOffset), With<crate::input::InputText>>,
     viewports: Query<(&ComputedNode, &UiGlobalTransform), With<crate::input::InputViewport>>,
 ) {
@@ -32,7 +34,8 @@ pub(crate) fn input_click(
         return;
     }
     let (input_type, checked, group_name) = {
-        let Ok((field, _)) = fields.get(event.entity) else {
+        let query = fields.p0();
+        let Ok((field, _)) = query.get(event.entity) else {
             return;
         };
         (field.input_type, field.checked, field.name.clone())
@@ -40,41 +43,35 @@ pub(crate) fn input_click(
 
     set_input_focus(&mut input_focus, event.entity);
     if input_type == crate::input::InputType::Checkbox {
-        if let Ok((mut field, _)) = fields.get_mut(event.entity) {
+        let mut query = fields.p0();
+        if let Ok((mut field, _)) = query.get_mut(event.entity) {
             let next_checked = !checked;
-            set_checkable_state(
-                event.entity,
-                &mut field,
-                next_checked,
-                &mut value_changed,
-            );
+            set_checkable_state(event.entity, &mut field, next_checked, &mut value_changed);
         }
         event.propagate(false);
         return;
     }
     if input_type == crate::input::InputType::Radio {
-        let targets = sibling_fields
+        let query = fields.p1();
+        let targets = query
             .iter()
             .filter_map(|(entity, sibling)| {
                 (sibling.input_type == crate::input::InputType::Radio && sibling.name == group_name)
                     .then_some(entity)
             })
             .collect::<Vec<_>>();
+        let mut query = fields.p0();
         for entity in targets {
-            if let Ok((mut sibling_field, _)) = fields.get_mut(entity) {
+            if let Ok((mut sibling_field, _)) = query.get_mut(entity) {
                 let next_checked = entity == event.entity;
-                set_checkable_state(
-                    entity,
-                    &mut sibling_field,
-                    next_checked,
-                    &mut value_changed,
-                );
+                set_checkable_state(entity, &mut sibling_field, next_checked, &mut value_changed);
             }
         }
         event.propagate(false);
         return;
     }
-    let Ok((mut field, mut click_state)) = fields.get_mut(event.entity) else {
+    let mut query = fields.p0();
+    let Ok((mut field, mut click_state)) = query.get_mut(event.entity) else {
         return;
     };
     let (Some(viewport_entity), Some(text_entity)) = (field.viewport_entity, field.text_entity)

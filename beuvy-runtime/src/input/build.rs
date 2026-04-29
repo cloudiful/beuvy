@@ -1,7 +1,7 @@
 use super::edit::TextEditState;
 use super::range::{spawn_range_fill, spawn_range_thumb, spawn_range_track};
 use super::text::{
-    default_check_indicator_node, default_check_input_node, default_input_node,
+    apply_check_input_shape, default_check_indicator_node, default_check_input_node, default_input_node,
     default_textarea_node, input_text_bundle, input_text_marker, input_text_node,
 };
 use super::{
@@ -13,8 +13,8 @@ use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
 use crate::interaction_style::UiDisabled;
 use crate::style::{
-    apply_utility_patch, input_selection_color, resolve_classes_with_fallback,
-    root_visual_styles_from_patch,
+    apply_utility_patch, checkbox_border_color, checkbox_indicator_color,
+    input_selection_color, resolve_classes_with_fallback, root_visual_styles_from_patch,
 };
 use crate::text::AddText;
 use bevy::picking::Pickable;
@@ -61,6 +61,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
         } else {
             default_input_node(add_input.size_chars)
         };
+        if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
+            apply_check_input_shape(&mut root_node, add_input.input_type);
+        }
         apply_utility_patch(&mut root_node, &root_patch);
 
         commands
@@ -82,7 +85,16 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     Name::new(add_input.name.clone()),
                     root_node,
                     Visibility::Visible,
-                    BackgroundColor(Color::NONE),
+                    BackgroundColor(if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
+                        Color::WHITE
+                    } else {
+                        Color::NONE
+                    }),
+                    BorderColor::all(if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
+                        checkbox_border_color()
+                    } else {
+                        Color::NONE
+                    }),
                     InputField {
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
@@ -132,9 +144,9 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                                 InputCheckRoot,
                                 Pickable::IGNORE,
                                 Visibility::Hidden,
-                                default_check_indicator_node(),
-                                BackgroundColor(crate::style::text_primary_color()),
-                                BorderColor::all(crate::style::text_primary_color()),
+                                default_check_indicator_node(add_input.input_type),
+                                BackgroundColor(checkbox_indicator_color()),
+                                BorderColor::all(checkbox_indicator_color()),
                             ))
                             .id();
                         world.entity_mut(input_entity).add_child(indicator);

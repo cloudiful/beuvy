@@ -173,6 +173,24 @@ pub fn text_placeholder_color() -> Color {
     runtime_style_sheet().config().text.placeholder.to_bevy()
 }
 
+pub fn checkbox_border_color() -> Color {
+    runtime_style_sheet()
+        .config()
+        .control
+        .checkbox
+        .border
+        .to_bevy()
+}
+
+pub fn checkbox_indicator_color() -> Color {
+    runtime_style_sheet()
+        .config()
+        .control
+        .checkbox
+        .indicator
+        .to_bevy()
+}
+
 pub fn tab_active_text_color() -> Color {
     runtime_style_sheet().config().text.tab_active.to_bevy()
 }

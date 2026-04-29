@@ -1,6 +1,6 @@
 use super::{AddInput, DisabledInput, InputField, InputText, InputType};
 use crate::style::{
-    control_radius, emphasis_border, font_size_control, regular_border, text_disabled_color,
+    control_radius, font_size_control, regular_border, text_disabled_color,
     text_placeholder_color, text_primary_color,
 };
 use crate::text::{AddText, FontResource, set_plain_text};
@@ -160,17 +160,31 @@ pub(crate) fn default_check_input_node() -> Node {
     }
 }
 
-pub(crate) fn default_check_indicator_node() -> Node {
-    Node {
-        width: Val::Px(10.0),
-        height: Val::Px(10.0),
-        border: emphasis_border(),
-        ..default()
+pub(crate) fn apply_check_input_shape(node: &mut Node, input_type: InputType) {
+    if matches!(input_type, InputType::Radio) {
+        node.border_radius = BorderRadius::all(Val::Px(999.0));
+    } else {
+        node.border_radius = BorderRadius::ZERO;
     }
 }
 
+pub(crate) fn default_check_indicator_node(input_type: InputType) -> Node {
+    let mut node = Node {
+        width: Val::Px(10.0),
+        height: Val::Px(10.0),
+        ..default()
+    };
+    if matches!(input_type, InputType::Radio) {
+        node.border_radius = BorderRadius::all(Val::Px(999.0));
+    } else {
+        node.width = Val::Px(9.0);
+        node.height = Val::Px(9.0);
+    }
+    node
+}
+
 fn mask_password(value: &str) -> String {
-    value.chars().map(|_| '•').collect()
+    value.chars().map(|_| '*').collect()
 }
 
 pub fn set_input_disabled(

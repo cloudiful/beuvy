@@ -353,8 +353,8 @@ pub struct CheckboxConfig {
 impl Default for CheckboxConfig {
     fn default() -> Self {
         Self {
-            border: ThemeColor::hex("#7CEC9476"),
-            indicator: ThemeColor::hex("#D6FFAAFF"),
+            border: ThemeColor::hex("#9CA3AF"),
+            indicator: ThemeColor::hex("#2563EB"),
         }
     }
 }

@@ -1,8 +1,8 @@
 use super::resolve::resolve_runtime_path;
 use crate::runtime::state::{
-    DeclarativeCheckedBinding, DeclarativeLocalState, DeclarativeModelBinding,
-    DeclarativeRefRects, DeclarativeRootComputedLocals, DeclarativeRootViewModel,
-    DeclarativeUiRuntimeValues, DeclarativeValueBinding,
+    DeclarativeCheckedBinding, DeclarativeLocalState, DeclarativeModelBinding, DeclarativeRefRects,
+    DeclarativeRootComputedLocals, DeclarativeRootViewModel, DeclarativeUiRuntimeValues,
+    DeclarativeValueBinding,
 };
 use beuvy_runtime::button::ButtonLabel;
 use beuvy_runtime::input::{
@@ -36,7 +36,9 @@ pub(crate) fn sync_declarative_field_values(
 ) {
     for (entity, binding, checked_binding, mut field, disabled) in &mut inputs {
         if matches!(field.input_type, InputType::Checkbox) {
-            let binding_path = checked_binding.map(|binding| binding.0.as_str()).unwrap_or(&binding.0);
+            let binding_path = checked_binding
+                .map(|binding| binding.0.as_str())
+                .unwrap_or(&binding.0);
             if let Some(next_checked) = resolve_runtime_path(
                 entity,
                 binding_path,
@@ -54,7 +56,9 @@ pub(crate) fn sync_declarative_field_values(
             continue;
         }
         if matches!(field.input_type, InputType::Radio) {
-            let binding_path = checked_binding.map(|binding| binding.0.as_str()).unwrap_or(&binding.0);
+            let binding_path = checked_binding
+                .map(|binding| binding.0.as_str())
+                .unwrap_or(&binding.0);
             if let Some(next_value) = resolve_runtime_path(
                 entity,
                 binding_path,

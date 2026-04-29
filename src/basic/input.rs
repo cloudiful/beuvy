@@ -35,6 +35,27 @@ pub(crate) fn parse_declarative_input_node(
             "checked and v-model cannot be used together",
         ));
     }
+    if checked && (checked_binding.is_some() || model_binding.is_some()) {
+        return Err(attr_error(
+            node,
+            "checked",
+            attr(node, "checked").unwrap_or_default(),
+            "static checked cannot be used with :checked or v-model",
+        ));
+    }
+    if matches!(input_type, InputType::Radio) {
+        if attr(node, "name").unwrap_or_default().trim().is_empty() {
+            return Err(attr_error(node, "name", "", "radio input requires name"));
+        }
+        if value_attr.trim().is_empty() {
+            return Err(attr_error(
+                node,
+                "value",
+                value_attr,
+                "radio input requires value",
+            ));
+        }
+    }
     let value = if matches!(input_type, InputType::Radio) {
         value_attr.to_string()
     } else if value_binding.is_some() || model_binding.is_some() {
@@ -460,5 +481,34 @@ mod tests {
         assert_eq!(name, "mode");
         assert_eq!(value, "easy");
         assert_eq!(model_binding.as_deref(), Some("settings.mode"));
+    }
+
+    #[test]
+    fn radio_input_requires_name() {
+        let error = parse_declarative_ui_asset(
+            r#"<template><input type="radio" value="easy" v-model="settings.mode" /></template>"#,
+        )
+        .expect_err("radio without name should fail");
+        assert!(error.to_string().contains("radio input requires name"));
+    }
+
+    #[test]
+    fn radio_input_requires_value() {
+        let error = parse_declarative_ui_asset(
+            r#"<template><input type="radio" name="mode" v-model="settings.mode" /></template>"#,
+        )
+        .expect_err("radio without value should fail");
+        assert!(error.to_string().contains("radio input requires value"));
+    }
+
+    #[test]
+    fn checked_conflicts_with_model_binding() {
+        let error = parse_declarative_ui_asset(
+            r#"<template><input type="checkbox" checked v-model="settings.enabled" /></template>"#,
+        )
+        .expect_err("checked with v-model should fail");
+        let message = error.to_string();
+        assert!(message.contains("checked"));
+        assert!(message.contains("v-model"));
     }
 }
