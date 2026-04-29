@@ -54,27 +54,22 @@ Supported patterns include:
 - `@click`, `@input`, `@change`, `@scroll`, `@wheel`
 - `{{ mustache }}` text interpolation and `$t(...)` localized text
 
-### Current HTML-Like Surface
+### Current Authoring Focus
 
-The current goal is "native-feeling basics first", not full DOM parity. The
-surface below is the practical authoring set that works today.
+`beuvy` currently targets practical Vue-style UI authoring for Bevy, with a
+usable "form + content basics" surface instead of full browser / DOM parity.
 
-| Area | Supported |
-| --- | --- |
-| Containers | `div`, `section`, `header`, `footer`, `main`, `nav`, `aside`, `article`, `form`, `fieldset` |
-| Text | `span`, `p`, `legend`, `small`, `strong`, `em`, `h1`-`h6` |
-| Controls | `button`, `input`, `textarea`, `select`, `option`, `label` |
-| Input types | `text`, `password`, `number`, `range`, `checkbox`, `radio` |
-| Content tags | `img`, `a`, `hr`, `ul`, `ol`, `li` |
-| Vue-style bindings | `v-if`, `v-else-if`, `v-else`, `v-show`, `v-for`, `v-model`, `:class`, `:style`, `:value`, `:checked`, `:disabled`, `:ref`, `:src`, `:alt`, `:href` |
-| Events | `@click`, `@input`, `@change`, `@scroll`, `@wheel` |
+That includes:
+
+- common structural tags and text tags
+- core form controls with `v-model`
+- basic content tags such as images, links, separators, and lists
+- Vue-style bindings, refs, conditional rendering, and repeated rendering
 
 Current notable limits:
 
-- No `table` family yet
-- No `video`, `audio`, or `canvas`
-- `<img>` supports Bevy asset paths, not remote URLs
-- `<a>` emits runtime/declarative events; it does not auto-navigate
+- no `table` family yet
+- no `video`, `audio`, or `canvas`
 - `br` and full inline-flow layout are intentionally deferred
 
 Example:
@@ -130,19 +125,6 @@ let asset = parse_declarative_ui_asset(
 - `runtime`: re-exports `beuvy-runtime` for direct low-level use.
 - `declarative`: parser, asset loader, shell materialization, bindings.
 - `vue`: preferred high-level feature alias for declarative authoring.
-
-## Runtime Examples
-
-Low-level runnable examples live under `beuvy-runtime/examples`:
-
-| Example | Purpose |
-| --- | --- |
-| `basic_controls` | minimal text, button, and input primitives |
-| `button_states` | hover / press / disabled button visuals |
-| `control_events` | runtime event flow for controls |
-| `form_core` | checkbox, radio, password, and label-oriented form basics |
-| `content_core` | image, link, separator, and content-page primitives |
-| `utility_classes` | utility-class parsing and styling behavior |
 
 ## License
 
