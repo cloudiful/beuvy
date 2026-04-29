@@ -39,6 +39,18 @@ pub enum DeclarativeUiNode {
         ref_binding: Option<DeclarativeRefSource>,
         style: DeclarativeTextStyle,
     },
+    Label {
+        node_id: String,
+        class: String,
+        class_bindings: Vec<DeclarativeClassBinding>,
+        content: DeclarativeUiTextContent,
+        conditional: DeclarativeConditional,
+        show_expr: Option<DeclarativeConditionExpr>,
+        ref_binding: Option<DeclarativeRefSource>,
+        style: DeclarativeTextStyle,
+        for_target: Option<String>,
+        children: Vec<DeclarativeUiNode>,
+    },
     Button {
         node_id: String,
         name: String,
@@ -68,6 +80,8 @@ pub enum DeclarativeUiNode {
         value: String,
         value_binding: Option<String>,
         model_binding: Option<String>,
+        checked: bool,
+        checked_binding: Option<String>,
         ref_binding: Option<DeclarativeRefSource>,
         event_bindings: Vec<DeclarativeEventBinding>,
         style_binding: Option<DeclarativeNodeStyleBinding>,
@@ -628,6 +642,7 @@ impl DeclarativeUiNode {
         match self {
             Self::Container { node_id, .. }
             | Self::Text { node_id, .. }
+            | Self::Label { node_id, .. }
             | Self::Button { node_id, .. }
             | Self::Input { node_id, .. }
             | Self::Select { node_id, .. }
@@ -640,6 +655,7 @@ impl DeclarativeUiNode {
         match self {
             Self::Container { node_id, .. }
             | Self::Text { node_id, .. }
+            | Self::Label { node_id, .. }
             | Self::Button { node_id, .. }
             | Self::Input { node_id, .. }
             | Self::Select { node_id, .. }
@@ -649,14 +665,18 @@ impl DeclarativeUiNode {
 
     pub fn children(&self) -> Option<&[DeclarativeUiNode]> {
         match self {
-            Self::Container { children, .. } | Self::Template { children, .. } => Some(children),
+            Self::Container { children, .. }
+            | Self::Label { children, .. }
+            | Self::Template { children, .. } => Some(children),
             _ => None,
         }
     }
 
     pub fn children_mut(&mut self) -> Option<&mut Vec<DeclarativeUiNode>> {
         match self {
-            Self::Container { children, .. } | Self::Template { children, .. } => Some(children),
+            Self::Container { children, .. }
+            | Self::Label { children, .. }
+            | Self::Template { children, .. } => Some(children),
             _ => None,
         }
     }

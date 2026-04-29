@@ -36,20 +36,20 @@ fn numeric_field_value_sync_accepts_text_value() {
             InputField {
                 name: "volume".to_string(),
                 input_type: InputType::Range,
+                checked: false,
+                input_value: None,
                 placeholder: String::new(),
-                text_entity: Entity::PLACEHOLDER,
-                selection_entity: Entity::PLACEHOLDER,
-                caret_entity: Entity::PLACEHOLDER,
+                viewport_entity: None,
+                text_entity: Some(Entity::PLACEHOLDER),
+                selection_entity: Some(Entity::PLACEHOLDER),
+                caret_entity: Some(Entity::PLACEHOLDER),
                 edit_state: TextEditState::with_text("0"),
                 min: None,
                 max: None,
                 step: None,
-                range_track: None,
-                range_fill: None,
-                range_thumb: None,
-                drag_start_value: 0.0,
                 caret_blink_resume_at: 0.0,
                 preferred_caret_x: None,
+                undo_stack: Default::default(),
             },
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeRootViewModel(UiValue::object([(
@@ -83,20 +83,20 @@ fn value_binding_does_not_write_input_change_to_runtime_store() {
             InputField {
                 name: "volume".to_string(),
                 input_type: InputType::Range,
+                checked: false,
+                input_value: None,
                 placeholder: String::new(),
-                text_entity: Entity::PLACEHOLDER,
-                selection_entity: Entity::PLACEHOLDER,
-                caret_entity: Entity::PLACEHOLDER,
+                viewport_entity: None,
+                text_entity: Some(Entity::PLACEHOLDER),
+                selection_entity: Some(Entity::PLACEHOLDER),
+                caret_entity: Some(Entity::PLACEHOLDER),
                 edit_state: TextEditState::with_text("10"),
                 min: None,
                 max: None,
                 step: None,
-                range_track: None,
-                range_fill: None,
-                range_thumb: None,
-                drag_start_value: 0.0,
                 caret_blink_resume_at: 0.0,
                 preferred_caret_x: None,
+                undo_stack: Default::default(),
             },
             DeclarativeValueBinding("settings.volume".to_string()),
         ))
@@ -130,20 +130,20 @@ fn v_model_writes_input_change_to_runtime_store() {
             InputField {
                 name: "volume".to_string(),
                 input_type: InputType::Range,
+                checked: false,
+                input_value: None,
                 placeholder: String::new(),
-                text_entity: Entity::PLACEHOLDER,
-                selection_entity: Entity::PLACEHOLDER,
-                caret_entity: Entity::PLACEHOLDER,
+                viewport_entity: None,
+                text_entity: Some(Entity::PLACEHOLDER),
+                selection_entity: Some(Entity::PLACEHOLDER),
+                caret_entity: Some(Entity::PLACEHOLDER),
                 edit_state: TextEditState::with_text("10"),
                 min: None,
                 max: None,
                 step: None,
-                range_track: None,
-                range_fill: None,
-                range_thumb: None,
-                drag_start_value: 0.0,
                 caret_blink_resume_at: 0.0,
                 preferred_caret_x: None,
+                undo_stack: Default::default(),
             },
             DeclarativeValueBinding("settings.volume".to_string()),
             DeclarativeModelBinding,
@@ -163,6 +163,97 @@ fn v_model_writes_input_change_to_runtime_store() {
             .get("settings.volume"),
         Some(&UiValue::Text("42".to_string()))
     );
+}
+
+#[test]
+fn checkbox_v_model_writes_bool_to_runtime_store() {
+    let mut app = App::new();
+    app.init_resource::<DeclarativeUiRuntimeValues>()
+        .add_message::<InputValueChangedMessage>()
+        .add_systems(Update, write_input_values_to_runtime_store);
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            InputField {
+                name: "enabled".to_string(),
+                input_type: InputType::Checkbox,
+                checked: true,
+                input_value: None,
+                placeholder: String::new(),
+                viewport_entity: None,
+                text_entity: None,
+                selection_entity: None,
+                caret_entity: None,
+                edit_state: TextEditState::with_text(""),
+                min: None,
+                max: None,
+                step: None,
+                caret_blink_resume_at: 0.0,
+                preferred_caret_x: None,
+                undo_stack: Default::default(),
+            },
+            DeclarativeValueBinding("settings.enabled".to_string()),
+            DeclarativeModelBinding,
+        ))
+        .id();
+
+    app.world_mut().write_message(InputValueChangedMessage {
+        entity,
+        name: "enabled".to_string(),
+        value: "true".to_string(),
+    });
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<DeclarativeUiRuntimeValues>()
+            .get("settings.enabled"),
+        Some(&UiValue::Bool(true))
+    );
+}
+
+#[test]
+fn radio_field_value_sync_marks_selected_option() {
+    let mut app = App::new();
+    app.insert_resource(DeclarativeUiRuntimeValues::default())
+        .init_resource::<DeclarativeRefRects>()
+        .insert_resource(FontResource::default())
+        .add_systems(Update, sync_declarative_field_values);
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            InputField {
+                name: "mode".to_string(),
+                input_type: InputType::Radio,
+                checked: false,
+                input_value: Some("easy".to_string()),
+                placeholder: String::new(),
+                viewport_entity: None,
+                text_entity: None,
+                selection_entity: None,
+                caret_entity: None,
+                edit_state: TextEditState::with_text("easy"),
+                min: None,
+                max: None,
+                step: None,
+                caret_blink_resume_at: 0.0,
+                preferred_caret_x: None,
+                undo_stack: Default::default(),
+            },
+            DeclarativeValueBinding("settings.mode".to_string()),
+            DeclarativeModelBinding,
+            DeclarativeRootViewModel(UiValue::object([(
+                "settings",
+                UiValue::object([("mode", UiValue::from("easy"))]),
+            )])),
+        ))
+        .id();
+
+    app.update();
+
+    assert_eq!(app.world().get::<InputField>(entity).map(|field| field.checked), Some(true));
 }
 
 #[test]

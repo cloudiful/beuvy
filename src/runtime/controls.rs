@@ -54,6 +54,8 @@ pub(crate) fn build_declarative_input(
         value,
         value_binding,
         model_binding,
+        checked,
+        checked_binding,
         placeholder,
         size_chars,
         rows,
@@ -77,6 +79,14 @@ pub(crate) fn build_declarative_input(
             model_binding.as_deref().or(value_binding.as_deref()),
             context,
         ),
+        checked: resolved_checked_value(
+            *input_type,
+            *checked,
+            checked_binding.as_deref().or(model_binding.as_deref()),
+            value,
+            context,
+        ),
+        input_value: matches!(input_type, InputType::Radio).then(|| value.clone()),
         placeholder: placeholder.clone(),
         size_chars: *size_chars,
         rows: *rows,
@@ -89,6 +99,25 @@ pub(crate) fn build_declarative_input(
             .map(|expr| condition_expr_matches(expr, context))
             .unwrap_or(*disabled),
         ..default()
+    }
+}
+
+fn resolved_checked_value(
+    input_type: InputType,
+    checked: bool,
+    checked_binding: Option<&str>,
+    input_value: &str,
+    context: &DeclarativeUiBuildContext,
+) -> bool {
+    match input_type {
+        InputType::Checkbox => checked_binding
+            .and_then(|binding| context.bool(binding))
+            .unwrap_or(checked),
+        InputType::Radio => checked_binding
+            .and_then(|binding| context.string(binding))
+            .map(|value| value == input_value)
+            .unwrap_or(checked),
+        _ => checked,
     }
 }
 

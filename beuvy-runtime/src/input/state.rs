@@ -71,9 +71,9 @@ fn word_modifier_pressed(keys: &ButtonInput<KeyCode>) -> bool {
 
 fn can_insert_char(field: &InputField, chr: char) -> bool {
     match field.input_type {
-        InputType::Text | InputType::Textarea => is_printable_char(chr),
+        InputType::Text | InputType::Textarea | InputType::Password => is_printable_char(chr),
         InputType::Number => can_insert_number_char(chr, field.value(), field.min),
-        InputType::Range => false,
+        InputType::Range | InputType::Checkbox | InputType::Radio => false,
     }
 }
 
@@ -93,6 +93,20 @@ fn commit_numeric_field(
     if !field.edit_state.normalize_text(next) {
         return false;
     }
+    push_value_changed(value_changed, entity, field);
+    true
+}
+
+pub(crate) fn set_checkable_state(
+    entity: Entity,
+    field: &mut InputField,
+    checked: bool,
+    value_changed: &mut MessageWriter<InputValueChangedMessage>,
+) -> bool {
+    if !field.is_checkable() || field.checked == checked {
+        return false;
+    }
+    field.checked = checked;
     push_value_changed(value_changed, entity, field);
     true
 }

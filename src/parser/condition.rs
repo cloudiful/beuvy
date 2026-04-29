@@ -112,6 +112,7 @@ pub(super) fn node_conditional(node: &DeclarativeUiNode) -> Option<&DeclarativeC
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => Some(conditional),

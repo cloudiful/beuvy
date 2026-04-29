@@ -32,7 +32,13 @@ pub struct DeclarativeValueBinding(pub String);
 pub struct DeclarativeModelBinding;
 
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeCheckedBinding(pub String);
+
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
 pub struct DeclarativeRefBinding(pub DeclarativeRefSource);
+
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeLabelForTarget(pub String);
 
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct DeclarativeNodeStyleBindingComponent(pub DeclarativeNodeStyleBinding);

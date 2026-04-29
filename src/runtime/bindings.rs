@@ -1,8 +1,8 @@
 use super::context::DeclarativeUiBuildContext;
 use super::state::{
-    DeclarativeDisabledExpr, DeclarativeEventBindings, DeclarativeModelBinding,
-    DeclarativeNodeStyleBindingComponent, DeclarativeRefBinding, DeclarativeShowExpr,
-    DeclarativeValueBinding, ResolvedDeclarativeEventBinding,
+    DeclarativeCheckedBinding, DeclarativeDisabledExpr, DeclarativeEventBindings,
+    DeclarativeModelBinding, DeclarativeNodeStyleBindingComponent, DeclarativeRefBinding,
+    DeclarativeShowExpr, DeclarativeValueBinding, ResolvedDeclarativeEventBinding,
 };
 use super::style::DeclarativeEntityInsert;
 use crate::ast::*;
@@ -130,6 +130,7 @@ pub(crate) fn apply_common_bindings_to_entity(
     disabled_expr: Option<&DeclarativeConditionExpr>,
     value_binding: Option<&str>,
     model_binding: Option<&str>,
+    checked_binding: Option<&str>,
     ref_binding: Option<&DeclarativeRefSource>,
     style_binding: Option<&DeclarativeNodeStyleBinding>,
     event_bindings: &[DeclarativeEventBinding],
@@ -147,6 +148,9 @@ pub(crate) fn apply_common_bindings_to_entity(
     }
     if model_binding.is_some() {
         entity.insert_component(DeclarativeModelBinding);
+    }
+    if let Some(path) = checked_binding {
+        entity.insert_component(DeclarativeCheckedBinding(path.to_string()));
     }
     if let Some(ref_binding) = ref_binding {
         entity.insert_component(DeclarativeRefBinding(ref_binding.clone()));

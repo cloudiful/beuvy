@@ -33,6 +33,9 @@ pub enum InputType {
     Textarea,
     Number,
     Range,
+    Checkbox,
+    Radio,
+    Password,
 }
 
 /// Declarative request to materialize an input field using the active UI theme.
@@ -41,6 +44,8 @@ pub struct AddInput {
     pub name: String,
     pub input_type: InputType,
     pub value: String,
+    pub checked: bool,
+    pub input_value: Option<String>,
     pub placeholder: String,
     pub size_chars: Option<usize>,
     pub rows: Option<usize>,
@@ -58,6 +63,8 @@ impl Default for AddInput {
             name: String::new(),
             input_type: InputType::Text,
             value: String::new(),
+            checked: false,
+            input_value: None,
             placeholder: String::new(),
             size_chars: None,
             rows: None,
@@ -75,6 +82,8 @@ impl Default for AddInput {
 pub struct InputField {
     pub name: String,
     pub input_type: InputType,
+    pub checked: bool,
+    pub input_value: Option<String>,
     pub placeholder: String,
     pub viewport_entity: Option<Entity>,
     pub text_entity: Option<Entity>,
@@ -87,6 +96,16 @@ pub struct InputField {
     pub caret_blink_resume_at: f64,
     pub preferred_caret_x: Option<f32>,
     pub undo_stack: UndoStack,
+}
+
+impl InputField {
+    pub fn submitted_value(&self) -> String {
+        match self.input_type {
+            InputType::Checkbox => self.checked.to_string(),
+            InputType::Radio => self.input_value.clone().unwrap_or_default(),
+            _ => self.value().to_string(),
+        }
+    }
 }
 
 #[derive(Component, Debug, Clone)]
@@ -112,6 +131,21 @@ impl InputField {
 
     pub fn is_multiline(&self) -> bool {
         matches!(self.input_type, InputType::Textarea)
+    }
+
+    pub fn is_text_like(&self) -> bool {
+        matches!(
+            self.input_type,
+            InputType::Text
+                | InputType::Textarea
+                | InputType::Number
+                | InputType::Range
+                | InputType::Password
+        )
+    }
+
+    pub fn is_checkable(&self) -> bool {
+        matches!(self.input_type, InputType::Checkbox | InputType::Radio)
     }
 
     pub fn step_by(&mut self, direction: f32) -> Option<String> {
@@ -141,6 +175,9 @@ impl InputField {
 pub struct InputText;
 
 #[derive(Component, Debug, Clone, Copy)]
+pub(crate) struct InputIndicator;
+
+#[derive(Component, Debug, Clone, Copy)]
 pub(crate) struct InputViewport;
 
 #[derive(Component, Debug, Clone, Copy, Default)]
@@ -160,6 +197,9 @@ pub(crate) struct SelectionSegmentPool {
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InputCaret;
+
+#[derive(Component, Debug, Clone, Copy)]
+pub(crate) struct InputCheckRoot;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InputCursorPosition {
@@ -255,7 +295,7 @@ pub(crate) fn push_value_changed(
     value_changed.write(InputValueChangedMessage {
         entity,
         name: field.name.clone(),
-        value: field.value().to_string(),
+        value: field.submitted_value(),
     });
 }
 

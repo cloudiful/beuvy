@@ -8,9 +8,9 @@ use super::controls::{
 };
 use super::state::{
     DeclarativeClassBindings, DeclarativeConditionalChainState, DeclarativeConditionalSubtree,
-    DeclarativeLocalState, DeclarativeNodeId, DeclarativeOnClickAssignment,
-    DeclarativeRootComputedLocals, DeclarativeRootViewModel, DeclarativeSelectTextBindings,
-    DeclarativeUiSlot,
+    DeclarativeLabelForTarget, DeclarativeLocalState, DeclarativeNodeId,
+    DeclarativeOnClickAssignment, DeclarativeRootComputedLocals, DeclarativeRootViewModel,
+    DeclarativeSelectTextBindings, DeclarativeUiSlot,
 };
 use super::style::{DeclarativeEntityInsert, apply_node_style, insert_runtime_visuals};
 use super::text::{build_add_text, content_has_dynamic_bindings};
@@ -316,6 +316,7 @@ fn build_spawned_node(
                 None,
                 None,
                 None,
+                None,
                 ref_binding.as_ref(),
                 style_binding.as_ref(),
                 event_bindings,
@@ -352,12 +353,54 @@ fn build_spawned_node(
                 None,
                 None,
                 None,
+                None,
                 ref_binding.as_ref(),
                 None,
                 &[],
                 context,
             );
             insert_class_bindings(entity, class, class_bindings);
+        }
+        DeclarativeUiNode::Label {
+            class,
+            class_bindings,
+            content,
+            show_expr,
+            ref_binding,
+            style,
+            for_target,
+            children,
+            ..
+        } => {
+            let (add_text, binding) = build_add_text(content, style, context);
+            entity.insert_component((add_text, apply_node_style(Node::default(), &DeclarativeNodeStyle::default())));
+            insert_runtime_visuals(entity, &style.visual_style, &style.state_visual_styles);
+            if let Some(binding) = binding {
+                entity.insert_component(binding);
+            }
+            if let Some(for_target) = for_target {
+                entity.insert_component(DeclarativeLabelForTarget(for_target.clone()));
+            }
+            apply_common_bindings_to_entity(
+                entity,
+                show_expr.as_ref(),
+                None,
+                None,
+                None,
+                None,
+                ref_binding.as_ref(),
+                None,
+                &[],
+                context,
+            );
+            insert_class_bindings(entity, class, class_bindings);
+            insert_conditional_subtree_component(
+                entity,
+                node.node_id(),
+                children,
+                context,
+                supports_runtime_conditional_subtree_rebuild,
+            );
         }
         DeclarativeUiNode::Button {
             content,
@@ -387,6 +430,7 @@ fn build_spawned_node(
                 None,
                 None,
                 None,
+                None,
                 ref_binding.as_ref(),
                 style_binding.as_ref(),
                 &[],
@@ -399,6 +443,7 @@ fn build_spawned_node(
             disabled_expr,
             value_binding,
             model_binding,
+            checked_binding,
             ref_binding,
             event_bindings,
             class,
@@ -413,6 +458,7 @@ fn build_spawned_node(
                 disabled_expr.as_ref(),
                 value_binding.as_deref(),
                 model_binding.as_deref(),
+                checked_binding.as_deref(),
                 ref_binding.as_ref(),
                 style_binding.as_ref(),
                 event_bindings,
@@ -446,6 +492,7 @@ fn build_spawned_node(
                 disabled_expr.as_ref(),
                 value_binding.as_deref(),
                 model_binding.as_deref(),
+                None,
                 ref_binding.as_ref(),
                 style_binding.as_ref(),
                 event_bindings,
@@ -662,6 +709,7 @@ fn node_matches_condition(node: &DeclarativeUiNode, context: &DeclarativeUiBuild
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => {
@@ -679,6 +727,7 @@ fn child_matches_conditional_chain(
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => {
@@ -695,6 +744,7 @@ pub(crate) fn node_conditional(node: &DeclarativeUiNode) -> Option<&DeclarativeC
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
         | DeclarativeUiNode::Select { conditional, .. } => Some(conditional),
@@ -711,7 +761,8 @@ fn outlet_name(node: &DeclarativeUiNode) -> Option<&str> {
 
 fn node_children(node: &DeclarativeUiNode) -> Option<&[DeclarativeUiNode]> {
     match node {
-        DeclarativeUiNode::Container { children, .. } => Some(children),
+        DeclarativeUiNode::Container { children, .. }
+        | DeclarativeUiNode::Label { children, .. } => Some(children),
         _ => None,
     }
 }

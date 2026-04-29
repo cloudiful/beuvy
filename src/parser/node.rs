@@ -1,6 +1,7 @@
 use super::runtime_expr::expr_binding_path;
 use super::*;
 use crate::basic::input::parse_declarative_textarea_node;
+use crate::basic::label::parse_declarative_label_node;
 
 pub(super) fn parse_node(
     node: XmlNode<'_, '_>,
@@ -53,6 +54,7 @@ pub(super) fn parse_node(
                 style,
             })
         }
+        "label" => parse_declarative_label_node(node, state_specs),
         "button" => parse_declarative_button_node(node, state_specs),
         "input" => parse_declarative_input_node(node, state_specs),
         "textarea" => parse_declarative_textarea_node(node, state_specs),
@@ -390,7 +392,7 @@ pub(super) fn is_block_tag(tag: &str) -> bool {
 pub(super) fn is_text_tag(tag: &str) -> bool {
     matches!(
         tag,
-        "span" | "p" | "label" | "legend" | "small" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+        "span" | "p" | "legend" | "small" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
     )
 }
 

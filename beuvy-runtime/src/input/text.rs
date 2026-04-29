@@ -1,6 +1,7 @@
-use super::{AddInput, DisabledInput, InputField, InputText};
+use super::{AddInput, DisabledInput, InputField, InputText, InputType};
 use crate::style::{
-    font_size_control, text_disabled_color, text_placeholder_color, text_primary_color,
+    control_radius, emphasis_border, font_size_control, regular_border, text_disabled_color,
+    text_placeholder_color, text_primary_color,
 };
 use crate::text::{AddText, FontResource, set_plain_text};
 use bevy::prelude::*;
@@ -47,7 +48,9 @@ pub(crate) fn input_text_node() -> Node {
 }
 
 pub(crate) fn input_text_bundle(add_input: &AddInput) -> AddText {
-    let preview = if add_input.value.is_empty() {
+    let preview = if add_input.input_type == InputType::Password && !add_input.value.is_empty() {
+        mask_password(&add_input.value)
+    } else if add_input.value.is_empty() {
         add_input.placeholder.clone()
     } else {
         add_input.value.clone()
@@ -64,7 +67,7 @@ pub(crate) fn input_text_bundle(add_input: &AddInput) -> AddText {
         text: preview,
         size: font_size_control(),
         color,
-        layout: if add_input.input_type == super::InputType::Textarea {
+        layout: if add_input.input_type == InputType::Textarea {
             TextLayout::new_with_linebreak(LineBreak::WordBoundary)
         } else {
             TextLayout::new_with_no_wrap()
@@ -84,7 +87,17 @@ pub(crate) fn update_input_text(
     };
 
     let display_text = field.edit_state.display_text_string(&field.placeholder);
-    let text = if disabled && field.edit_state.preedit().is_some() {
+    let text = if matches!(field.input_type, InputType::Password) {
+        if field.value().is_empty() {
+            if disabled || display_text.is_placeholder {
+                field.placeholder.clone()
+            } else {
+                String::new()
+            }
+        } else {
+            mask_password(field.value())
+        }
+    } else if disabled && field.edit_state.preedit().is_some() {
         field.value().to_string()
     } else if disabled {
         if field.value().is_empty() {
@@ -131,6 +144,33 @@ pub fn set_input_value(
     field.set_value(value);
     update_input_text(commands, font_resource, field, disabled);
     true
+}
+
+pub(crate) fn default_check_input_node() -> Node {
+    Node {
+        min_width: Val::Px(18.0),
+        min_height: Val::Px(18.0),
+        width: Val::Px(18.0),
+        height: Val::Px(18.0),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border: regular_border(),
+        border_radius: control_radius(),
+        ..default()
+    }
+}
+
+pub(crate) fn default_check_indicator_node() -> Node {
+    Node {
+        width: Val::Px(10.0),
+        height: Val::Px(10.0),
+        border: emphasis_border(),
+        ..default()
+    }
+}
+
+fn mask_password(value: &str) -> String {
+    value.chars().map(|_| '•').collect()
 }
 
 pub fn set_input_disabled(

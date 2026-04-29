@@ -113,6 +113,7 @@ fn materialize_declarative_ui_shell_on_entity_inner(
                 None,
                 None,
                 None,
+                None,
                 ref_binding.as_ref(),
                 style_binding.as_ref(),
                 event_bindings,

@@ -23,8 +23,9 @@ pub use spawn::{
 };
 pub use state::{
     DeclarativeAppliedTemplateHotReload, DeclarativeClassBindings,
-    DeclarativeConditionalChainState, DeclarativeConditionalSubtree, DeclarativeDisabledExpr,
-    DeclarativeEventBindings, DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
+    DeclarativeCheckedBinding, DeclarativeConditionalChainState,
+    DeclarativeConditionalSubtree, DeclarativeDisabledExpr, DeclarativeEventBindings,
+    DeclarativeLabelForTarget, DeclarativeLocalState, DeclarativeModelBinding, DeclarativeNodeId,
     DeclarativeNodeStyleBindingComponent, DeclarativeOnClickAssignment, DeclarativeRefBinding,
     DeclarativeRefRects, DeclarativeResolvedRef, DeclarativeRootComputedLocals,
     DeclarativeRootUiAsset, DeclarativeRootViewModel, DeclarativeShowExpr, DeclarativeTextBinding,

@@ -1,12 +1,13 @@
 use super::edit::TextEditState;
 use super::range::{spawn_range_fill, spawn_range_thumb, spawn_range_track};
 use super::text::{
-    default_input_node, default_textarea_node, input_text_bundle, input_text_marker,
-    input_text_node,
+    default_check_indicator_node, default_check_input_node, default_input_node,
+    default_textarea_node, input_text_bundle, input_text_marker, input_text_node,
 };
 use super::{
-    AddInput, DisabledInput, InputCaret, InputClickState, InputField, InputScrollOffset,
-    InputSelection, InputType, InputViewport, RangeState, UndoStack,
+    AddInput, DisabledInput, InputCaret, InputCheckRoot, InputClickState, InputField,
+    InputIndicator, InputScrollOffset, InputSelection, InputType, InputViewport, RangeState,
+    UndoStack,
 };
 use crate::build_pending::UiBuildPending;
 use crate::focus::{UiFocusable, hidden_outline};
@@ -22,12 +23,18 @@ use bevy::prelude::*;
 const DEFAULT_INPUT_CLASS: &str = "input-root";
 const DEFAULT_TEXTAREA_CLASS: &str = "textarea-root";
 const DEFAULT_RANGE_CLASS: &str = "input-range-root";
+const DEFAULT_CHECKBOX_CLASS: &str = "checkbox-root";
+const DEFAULT_RADIO_CLASS: &str = "radio-root";
 
 pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)>) {
     for (entity, add_input) in query {
         let add_input = add_input.clone();
         let default_root_class = if add_input.input_type == InputType::Range {
             DEFAULT_RANGE_CLASS
+        } else if add_input.input_type == InputType::Checkbox {
+            DEFAULT_CHECKBOX_CLASS
+        } else if add_input.input_type == InputType::Radio {
+            DEFAULT_RADIO_CLASS
         } else if add_input.input_type == InputType::Textarea {
             DEFAULT_TEXTAREA_CLASS
         } else {
@@ -47,6 +54,8 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                 border: UiRect::ZERO,
                 ..default()
             }
+        } else if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
+            default_check_input_node()
         } else if add_input.input_type == InputType::Textarea {
             default_textarea_node(add_input.size_chars, add_input.rows)
         } else {
@@ -77,6 +86,8 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                     InputField {
                         name: add_input.name.clone(),
                         input_type: add_input.input_type,
+                        checked: add_input.checked,
+                        input_value: add_input.input_value.clone(),
                         placeholder: add_input.placeholder.clone(),
                         viewport_entity: None,
                         text_entity: None,
@@ -112,6 +123,25 @@ pub(super) fn add_input(mut commands: Commands, query: Query<(Entity, &AddInput)
                             thumb,
                             drag_start_value: 0.0,
                         });
+                    });
+                } else if matches!(add_input.input_type, InputType::Checkbox | InputType::Radio) {
+                    entity_commands.world_scope(|world| {
+                        let indicator = world
+                            .spawn((
+                                InputIndicator,
+                                InputCheckRoot,
+                                Pickable::IGNORE,
+                                Visibility::Hidden,
+                                default_check_indicator_node(),
+                                BackgroundColor(crate::style::text_primary_color()),
+                                BorderColor::all(crate::style::text_primary_color()),
+                            ))
+                            .id();
+                        world.entity_mut(input_entity).add_child(indicator);
+                        let mut input = world
+                            .get_mut::<InputField>(input_entity)
+                            .expect("input just inserted");
+                        input.viewport_entity = Some(indicator);
                     });
                 } else {
                     let text_patch = resolve_classes_with_fallback(

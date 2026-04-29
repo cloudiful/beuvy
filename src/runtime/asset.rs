@@ -1,6 +1,7 @@
 use super::state::{DeclarativeRefRects, DeclarativeUiRuntimeValues};
 use super::sync::{
-    apply_declarative_local_state_assignments, materialize_declarative_overflow_scroll,
+    apply_declarative_local_state_assignments, handle_declarative_label_click,
+    infer_wrapped_label_targets, materialize_declarative_overflow_scroll,
     materialize_declarative_refs, sync_declarative_class_bindings, sync_declarative_disabled,
     sync_declarative_field_values, sync_declarative_node_style_bindings,
     sync_declarative_ref_rects, sync_declarative_text_bindings, sync_declarative_visibility,
@@ -75,9 +76,16 @@ impl Plugin for DeclarativeUiPlugin {
                     sync_declarative_text_bindings,
                     sync_declarative_disabled,
                     sync_declarative_field_values,
-                    write_input_values_to_runtime_store,
-                    write_select_values_to_runtime_store,
-                    apply_declarative_local_state_assignments,
+                ),
+            )
+            .add_systems(Update, write_input_values_to_runtime_store)
+            .add_systems(Update, write_select_values_to_runtime_store)
+            .add_systems(Update, infer_wrapped_label_targets)
+            .add_systems(Update, apply_declarative_local_state_assignments)
+            .add_systems(Update, handle_declarative_label_click)
+            .add_systems(
+                Update,
+                (
                     sync_declarative_class_bindings,
                     sync_declarative_ref_rects.after(materialize_declarative_refs),
                     sync_declarative_node_style_bindings.after(sync_declarative_class_bindings),

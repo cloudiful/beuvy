@@ -19,6 +19,7 @@ pub(crate) fn parse_declarative_input_node(
     reject_legacy_bind_attrs(node)?;
     reject_style_attrs_except(node, &["size", "style"])?;
     let input_type = parse_input_type(node)?;
+    let (checked, checked_binding) = parse_checked_attr(node, state_specs)?;
     let value_attr = node.attribute("value").unwrap_or_default();
     let value_binding = bound_attr(node, "value")
         .map(|expr| parse_binding_path_expr(node, ":value", expr))
@@ -26,7 +27,17 @@ pub(crate) fn parse_declarative_input_node(
     let model_binding = model_attr(node)
         .map(|expr| parse_binding_path_expr(node, "v-model", expr))
         .transpose()?;
-    let value = if value_binding.is_some() || model_binding.is_some() {
+    if checked_binding.is_some() && model_binding.is_some() {
+        return Err(attr_error(
+            node,
+            "checked",
+            attr(node, "checked").unwrap_or_default(),
+            "checked and v-model cannot be used together",
+        ));
+    }
+    let value = if matches!(input_type, InputType::Radio) {
+        value_attr.to_string()
+    } else if value_binding.is_some() || model_binding.is_some() {
         String::new()
     } else if let Some(expr) = parse_mustache_expr(value_attr) {
         return Err(attr_error(
@@ -56,6 +67,8 @@ pub(crate) fn parse_declarative_input_node(
         value,
         value_binding,
         model_binding,
+        checked,
+        checked_binding,
         ref_binding: parse_ref_binding(node)?,
         event_bindings: parse_event_bindings(node)?,
         style_binding: parse_node_style_binding(node)?,
@@ -91,6 +104,8 @@ pub(crate) fn parse_declarative_textarea_node(
         value,
         value_binding,
         model_binding,
+        checked,
+        checked_binding,
         ref_binding,
         event_bindings,
         style_binding,
@@ -119,6 +134,8 @@ pub(crate) fn parse_declarative_textarea_node(
         value,
         value_binding,
         model_binding,
+        checked,
+        checked_binding,
         ref_binding,
         event_bindings,
         style_binding,
@@ -143,13 +160,39 @@ fn parse_input_type(node: XmlNode<'_, '_>) -> Result<InputType, DeclarativeUiAss
         "textarea" => Ok(InputType::Textarea),
         "number" => Ok(InputType::Number),
         "range" => Ok(InputType::Range),
+        "checkbox" => Ok(InputType::Checkbox),
+        "radio" => Ok(InputType::Radio),
+        "password" => Ok(InputType::Password),
         raw => Err(attr_error(
             node,
             "type",
             raw,
-            "expected text, textarea, number, or range",
+            "expected text, textarea, number, range, checkbox, radio, or password",
         )),
     }
+}
+
+fn parse_checked_attr(
+    node: XmlNode<'_, '_>,
+    state_specs: &BTreeMap<String, DeclarativeStateSpec>,
+) -> Result<(bool, Option<String>), DeclarativeUiAssetLoadError> {
+    if let Some(raw) = bound_attr(node, "checked") {
+        return Ok((false, Some(parse_binding_path_expr(node, ":checked", raw)?)));
+    }
+    let (checked, checked_expr) = parse_bool_or_condition_attr(node, "checked", state_specs)?;
+    let checked_binding = match checked_expr {
+        Some(crate::DeclarativeConditionExpr::Binding(path)) => Some(path),
+        Some(_) => {
+            return Err(attr_error(
+                node,
+                "checked",
+                attr(node, "checked").unwrap_or_default(),
+                "checked only supports direct binding paths",
+            ));
+        }
+        None => None,
+    };
+    Ok((checked, checked_binding))
 }
 
 fn parse_f32_attr(
@@ -377,5 +420,45 @@ mod tests {
         assert_eq!(rows, Some(4));
         assert_eq!(size_chars, Some(32));
         assert_eq!(model_binding.as_deref(), Some("draft.body"));
+    }
+
+    #[test]
+    fn checkbox_input_parses_checked_binding() {
+        let asset = parse_declarative_ui_asset(
+            r#"<template><input type="checkbox" :checked="settings.enabled" /></template>"#,
+        )
+        .expect("checkbox should parse");
+        let DeclarativeUiNode::Input {
+            input_type,
+            checked_binding,
+            ..
+        } = asset.root
+        else {
+            panic!("expected input node");
+        };
+        assert_eq!(input_type, InputType::Checkbox);
+        assert_eq!(checked_binding.as_deref(), Some("settings.enabled"));
+    }
+
+    #[test]
+    fn radio_input_parses_value_and_model_binding() {
+        let asset = parse_declarative_ui_asset(
+            r#"<template><input type="radio" name="mode" value="easy" v-model="settings.mode" /></template>"#,
+        )
+        .expect("radio should parse");
+        let DeclarativeUiNode::Input {
+            input_type,
+            name,
+            value,
+            model_binding,
+            ..
+        } = asset.root
+        else {
+            panic!("expected input node");
+        };
+        assert_eq!(input_type, InputType::Radio);
+        assert_eq!(name, "mode");
+        assert_eq!(value, "easy");
+        assert_eq!(model_binding.as_deref(), Some("settings.mode"));
     }
 }
