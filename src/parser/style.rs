@@ -37,7 +37,7 @@ pub(crate) fn parse_node_style(
     })
 }
 
-pub(super) fn parse_text_style(
+pub(crate) fn parse_text_style(
     node: XmlNode<'_, '_>,
     tag: &str,
 ) -> Result<DeclarativeTextStyle, DeclarativeUiAssetLoadError> {

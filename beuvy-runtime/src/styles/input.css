@@ -21,3 +21,15 @@
 @utility input-text {
     @apply text-control text-primary;
 }
+
+@utility image-root {
+    @apply block overflow-visible;
+}
+
+@utility link-root {
+    @apply flex items-center justify-start overflow-visible focus:outline-[var(--border-focus-outline)] focus:outline-control-focus-outline;
+}
+
+@utility link-label {
+    @apply text-control;
+}

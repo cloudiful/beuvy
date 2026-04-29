@@ -49,7 +49,7 @@ pub(crate) use repeat::parse_v_for;
 pub(crate) use runtime_expr::parse_runtime_expr;
 pub(crate) use script::DeclarativeStateSpec;
 use script::{is_identifier_path, parse_root_script, parse_script_source, parse_state_name};
-use style::parse_text_style;
+pub(crate) use style::parse_text_style;
 
 #[derive(Debug, Clone)]
 pub struct DeclarativeActionSpec {

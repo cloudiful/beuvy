@@ -1,4 +1,4 @@
-use crate::ast::DeclarativeUiNode;
+use crate::ast::{DeclarativeContainerTag, DeclarativeUiNode};
 use crate::error::DeclarativeUiAssetLoadError;
 use crate::parser::{
     DeclarativeStateSpec, attr, parse_child_nodes, parse_class_bindings, parse_conditional,
@@ -18,6 +18,7 @@ pub(crate) fn parse_declarative_div_node(
     reject_style_attrs_except(node, &["style"])?;
     Ok(DeclarativeUiNode::Container {
         node_id: String::new(),
+        semantic_tag: container_tag_for(node.tag_name().name()),
         class: attr(node, "class").unwrap_or_default().to_string(),
         class_bindings: parse_class_bindings(node, state_specs)?,
         node: parse_node_style(node)?,
@@ -30,6 +31,25 @@ pub(crate) fn parse_declarative_div_node(
         ref_binding: parse_ref_binding(node)?,
         event_bindings: parse_event_bindings(node)?,
         children: parse_child_nodes(node, state_specs)?,
+    })
+}
+
+fn container_tag_for(tag: &str) -> Option<DeclarativeContainerTag> {
+    Some(match tag {
+        "div" => DeclarativeContainerTag::Div,
+        "section" => DeclarativeContainerTag::Section,
+        "header" => DeclarativeContainerTag::Header,
+        "footer" => DeclarativeContainerTag::Footer,
+        "main" => DeclarativeContainerTag::Main,
+        "nav" => DeclarativeContainerTag::Nav,
+        "aside" => DeclarativeContainerTag::Aside,
+        "article" => DeclarativeContainerTag::Article,
+        "form" => DeclarativeContainerTag::Form,
+        "fieldset" => DeclarativeContainerTag::Fieldset,
+        "ul" => DeclarativeContainerTag::Ul,
+        "ol" => DeclarativeContainerTag::Ol,
+        "li" => DeclarativeContainerTag::Li,
+        _ => return None,
     })
 }
 

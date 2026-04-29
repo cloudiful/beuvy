@@ -9,6 +9,7 @@ use crate::runtime::text::{ResolvedTextContent, resolve_text_content};
 use crate::value::UiValue;
 use beuvy_runtime::Select;
 use beuvy_runtime::button::ButtonLabel;
+use beuvy_runtime::link::LinkLabel;
 use beuvy_runtime::select::SelectOptionState;
 use beuvy_runtime::text::{
     LocalizedText, LocalizedTextFormat, set_localized_text, set_localized_text_format,
@@ -28,6 +29,7 @@ pub(crate) fn sync_declarative_text_bindings(
     roots: Query<&DeclarativeRootViewModel>,
     ref_rects: Res<DeclarativeRefRects>,
     button_labels: Query<&ButtonLabel>,
+    link_labels: Query<&LinkLabel>,
     current_text: Query<(
         Option<&Text>,
         Option<&LocalizedText>,
@@ -35,6 +37,7 @@ pub(crate) fn sync_declarative_text_bindings(
     )>,
     text_entities: Query<(Entity, &DeclarativeTextBinding), With<Text>>,
     button_entities: Query<(Entity, &DeclarativeTextBinding), (With<ButtonLabel>, Without<Text>)>,
+    link_entities: Query<(Entity, &DeclarativeTextBinding), (With<LinkLabel>, Without<Text>)>,
     mut selects: Query<(Entity, &DeclarativeSelectTextBindings, &mut Select)>,
 ) {
     let localization = localization.as_deref();
@@ -62,6 +65,30 @@ pub(crate) fn sync_declarative_text_bindings(
 
     for (entity, binding) in &button_entities {
         let Ok(label) = button_labels.get(entity) else {
+            continue;
+        };
+        let resolved = resolve_bound_text(
+            entity,
+            &binding.0,
+            None,
+            &parents,
+            &local_states,
+            &computed,
+            &roots,
+            &values,
+            &ref_rects,
+        );
+        sync_label_entity(
+            &mut commands,
+            localization,
+            label.entity,
+            &resolved,
+            &current_text,
+        );
+    }
+
+    for (entity, binding) in &link_entities {
+        let Ok(label) = link_labels.get(entity) else {
             continue;
         };
         let resolved = resolve_bound_text(

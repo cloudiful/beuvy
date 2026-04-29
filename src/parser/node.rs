@@ -1,7 +1,10 @@
 use super::runtime_expr::expr_binding_path;
 use super::*;
+use crate::basic::hr::parse_declarative_hr_node;
+use crate::basic::image::parse_declarative_image_node;
 use crate::basic::input::parse_declarative_textarea_node;
 use crate::basic::label::parse_declarative_label_node;
+use crate::basic::link::parse_declarative_link_node;
 
 pub(super) fn parse_node(
     node: XmlNode<'_, '_>,
@@ -24,6 +27,7 @@ pub(super) fn parse_node(
             reject_style_attrs_except(node, &["style"])?;
             Ok(DeclarativeUiNode::Container {
                 node_id: String::new(),
+                semantic_tag: None,
                 class: attr(node, "class").unwrap_or_default().to_string(),
                 class_bindings: parse_class_bindings(node, state_specs)?,
                 node: parse_node_style(node)?,
@@ -45,6 +49,7 @@ pub(super) fn parse_node(
             let style = parse_text_style(node, tag)?;
             Ok(DeclarativeUiNode::Text {
                 node_id: String::new(),
+                semantic_tag: text_tag_for(tag),
                 class: attr(node, "class").unwrap_or_default().to_string(),
                 class_bindings: parse_class_bindings(node, state_specs)?,
                 content,
@@ -56,6 +61,9 @@ pub(super) fn parse_node(
         }
         "label" => parse_declarative_label_node(node, state_specs),
         "button" => parse_declarative_button_node(node, state_specs),
+        "img" => parse_declarative_image_node(node, state_specs),
+        "a" => parse_declarative_link_node(node, state_specs),
+        "hr" => parse_declarative_hr_node(node, state_specs),
         "input" => parse_declarative_input_node(node, state_specs),
         "textarea" => parse_declarative_textarea_node(node, state_specs),
         "select" => parse_declarative_select_node(node, state_specs),
@@ -116,6 +124,7 @@ fn parse_raw_text_child(
 
     Ok(Some(DeclarativeUiNode::Text {
         node_id: String::new(),
+        semantic_tag: Some(DeclarativeTextTag::Span),
         class: String::new(),
         class_bindings: Vec::new(),
         content,
@@ -392,8 +401,37 @@ pub(super) fn is_block_tag(tag: &str) -> bool {
 pub(super) fn is_text_tag(tag: &str) -> bool {
     matches!(
         tag,
-        "span" | "p" | "legend" | "small" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+        "span"
+            | "p"
+            | "legend"
+            | "small"
+            | "strong"
+            | "em"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
     )
+}
+
+fn text_tag_for(tag: &str) -> Option<DeclarativeTextTag> {
+    Some(match tag {
+        "span" => DeclarativeTextTag::Span,
+        "p" => DeclarativeTextTag::P,
+        "legend" => DeclarativeTextTag::Legend,
+        "small" => DeclarativeTextTag::Small,
+        "strong" => DeclarativeTextTag::Strong,
+        "em" => DeclarativeTextTag::Em,
+        "h1" => DeclarativeTextTag::H1,
+        "h2" => DeclarativeTextTag::H2,
+        "h3" => DeclarativeTextTag::H3,
+        "h4" => DeclarativeTextTag::H4,
+        "h5" => DeclarativeTextTag::H5,
+        "h6" => DeclarativeTextTag::H6,
+        _ => return None,
+    })
 }
 
 pub(super) fn default_text_size_for_tag(tag: &str) -> f32 {
@@ -402,6 +440,7 @@ pub(super) fn default_text_size_for_tag(tag: &str) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::{DeclarativeContainerTag, DeclarativeTextTag};
     use crate::{
         DeclarativeTextKeySource, DeclarativeUiNode, DeclarativeUiTextContent,
         DeclarativeUiTextSegment, parse_declarative_ui_asset,
@@ -553,5 +592,47 @@ mod tests {
         let message = error.to_string();
         assert!(message.contains("`i18n` is no longer supported"));
         assert!(message.contains("{{ $t('key') }}"));
+    }
+
+    #[test]
+    fn semantic_tags_parse_for_content_nodes() {
+        let asset = parse_declarative_ui_asset(
+            r#"
+            <template>
+              <fieldset>
+                <legend>Profile</legend>
+                <strong>Bold</strong>
+                <em>Hint</em>
+                <small>Meta</small>
+                <ul><li>One</li><li>Two</li></ul>
+              </fieldset>
+            </template>
+            "#,
+        )
+        .expect("content semantic nodes should parse");
+
+        let DeclarativeUiNode::Container {
+            semantic_tag,
+            children,
+            ..
+        } = asset.root
+        else {
+            panic!("expected fieldset container");
+        };
+        assert_eq!(semantic_tag, Some(DeclarativeContainerTag::Fieldset));
+        assert!(matches!(
+            children.first(),
+            Some(DeclarativeUiNode::Text {
+                semantic_tag: Some(DeclarativeTextTag::Legend),
+                ..
+            })
+        ));
+        assert!(children.iter().any(|child| matches!(
+            child,
+            DeclarativeUiNode::Container {
+                semantic_tag: Some(DeclarativeContainerTag::Ul),
+                ..
+            }
+        )));
     }
 }

@@ -8,14 +8,17 @@ use super::controls::{
 };
 use super::state::{
     DeclarativeClassBindings, DeclarativeConditionalChainState, DeclarativeConditionalSubtree,
-    DeclarativeLabelForTarget, DeclarativeLabelNode, DeclarativeLocalState, DeclarativeNodeId,
+    DeclarativeImageAltBinding, DeclarativeImageSrcBinding, DeclarativeLabelForTarget,
+    DeclarativeLabelNode, DeclarativeLinkHrefBinding, DeclarativeLocalState, DeclarativeNodeId,
     DeclarativeOnClickAssignment, DeclarativeRootComputedLocals, DeclarativeRootViewModel,
     DeclarativeSelectTextBindings, DeclarativeUiSlot,
 };
 use super::style::{DeclarativeEntityInsert, apply_node_style, insert_runtime_visuals};
 use super::text::{build_add_text, content_has_dynamic_bindings};
 use crate::ast::*;
+use crate::style::text_primary_color;
 use crate::value::UiValue;
+use beuvy_runtime::{AddImage, AddLink};
 use bevy::ecs::relationship::RelatedSpawner;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -110,6 +113,13 @@ fn spawn_declarative_ui_tree_inner(
     }
     if let Some(children) = node_children(node) {
         parent.commands().entity(id).with_children(|child_parent| {
+            if let Some(marker) = list_marker_text(node, &context) {
+                let mut marker_entity = child_parent.spawn_empty();
+                marker_entity.insert((
+                    build_list_marker_text(&marker),
+                    apply_node_style(Node::default(), &list_marker_node_style()),
+                ));
+            }
             spawn_declarative_child_nodes(
                 child_parent,
                 asset,
@@ -154,6 +164,13 @@ fn spawn_declarative_ui_tree_inner_in_world(
     }
     if let Some(children) = node_children(node) {
         entity.with_related_entities::<ChildOf>(|child_parent| {
+            if let Some(marker) = list_marker_text(node, &context) {
+                let mut marker_entity = child_parent.spawn_empty();
+                marker_entity.insert((
+                    build_list_marker_text(&marker),
+                    apply_node_style(Node::default(), &list_marker_node_style()),
+                ));
+            }
             spawn_declarative_child_nodes_in_world(
                 child_parent,
                 asset,
@@ -293,6 +310,7 @@ fn build_spawned_node(
     match node {
         DeclarativeUiNode::Container {
             node_id,
+            semantic_tag,
             class,
             class_bindings,
             node,
@@ -306,7 +324,11 @@ fn build_spawned_node(
             children,
             ..
         } => {
-            entity.insert_component((apply_node_style(Node::default(), node), Visibility::Visible));
+            let style_node = merge_node_styles(default_container_node_style(*semantic_tag), node);
+            entity.insert_component((
+                apply_node_style(Node::default(), &style_node),
+                Visibility::Visible,
+            ));
             if outlet.is_some() {
                 entity.insert_component(DeclarativeUiSlot);
             }
@@ -333,6 +355,7 @@ fn build_spawned_node(
             );
         }
         DeclarativeUiNode::Text {
+            semantic_tag,
             class,
             class_bindings,
             content,
@@ -341,7 +364,8 @@ fn build_spawned_node(
             style,
             ..
         } => {
-            let (add_text, binding) = build_add_text(content, style, context);
+            let style = merged_text_style(*semantic_tag, style.clone());
+            let (add_text, binding) = build_add_text(content, &style, context);
             entity.insert_component(add_text);
             insert_runtime_visuals(entity, &style.visual_style, &style.state_visual_styles);
             if let Some(binding) = binding {
@@ -358,6 +382,144 @@ fn build_spawned_node(
                 None,
                 &[],
                 context,
+            );
+            insert_class_bindings(entity, class, class_bindings);
+        }
+        DeclarativeUiNode::Image {
+            class,
+            class_bindings,
+            conditional: _,
+            show_expr,
+            ref_binding,
+            style_binding,
+            src,
+            src_binding,
+            alt,
+            alt_binding,
+            node_override,
+            visual_style,
+            state_visual_styles,
+            ..
+        } => {
+            entity.insert_component((
+                AddImage {
+                    src: src.clone(),
+                    alt: alt.clone(),
+                    class: (!class.is_empty()).then_some(class.clone()),
+                },
+                apply_node_style(
+                    Node::default(),
+                    &merge_optional_node_styles(default_image_node_style(), node_override),
+                ),
+            ));
+            if let Some(path) = src_binding {
+                entity.insert_component(DeclarativeImageSrcBinding(path.clone()));
+            }
+            if let Some(path) = alt_binding {
+                entity.insert_component(DeclarativeImageAltBinding(path.clone()));
+            }
+            apply_common_bindings_to_entity(
+                entity,
+                show_expr.as_ref(),
+                None,
+                None,
+                None,
+                None,
+                ref_binding.as_ref(),
+                style_binding.as_ref(),
+                &[],
+                context,
+            );
+            insert_runtime_visuals(entity, visual_style, state_visual_styles);
+            insert_class_bindings(entity, class, class_bindings);
+        }
+        DeclarativeUiNode::Link {
+            class,
+            class_bindings,
+            conditional: _,
+            show_expr,
+            ref_binding,
+            style_binding,
+            event_bindings,
+            href,
+            href_binding,
+            content,
+            text_style,
+            visual_style,
+            state_visual_styles,
+            ..
+        } => {
+            let style = merged_text_style(Some(DeclarativeTextTag::Span), text_style.clone());
+            let (text, _, _) = super::text::button_text_content(content, context);
+            entity.insert_component(AddLink {
+                name: text.clone(),
+                href: href.clone(),
+                text,
+                class: (!class.is_empty()).then_some(class.clone()),
+                label_class: (!class.is_empty()).then_some(class.clone()),
+                visible: show_expr
+                    .as_ref()
+                    .map(|expr| super::bindings::condition_expr_matches(expr, context))
+                    .unwrap_or(true),
+                disabled: false,
+            });
+            if content_has_dynamic_bindings(content) {
+                entity.insert_component(super::state::DeclarativeTextBinding(content.clone()));
+            }
+            if let Some(path) = href_binding {
+                entity.insert_component(DeclarativeLinkHrefBinding(path.clone()));
+            }
+            apply_common_bindings_to_entity(
+                entity,
+                show_expr.as_ref(),
+                None,
+                None,
+                None,
+                None,
+                ref_binding.as_ref(),
+                style_binding.as_ref(),
+                event_bindings,
+                context,
+            );
+            insert_runtime_visuals(entity, visual_style, state_visual_styles);
+            insert_runtime_visuals(entity, &style.visual_style, &style.state_visual_styles);
+            insert_class_bindings(entity, class, class_bindings);
+        }
+        DeclarativeUiNode::Hr {
+            class,
+            class_bindings,
+            conditional: _,
+            show_expr,
+            ref_binding,
+            style_binding,
+            node_override,
+            visual_style,
+            state_visual_styles,
+            ..
+        } => {
+            entity.insert_component((
+                apply_node_style(
+                    Node::default(),
+                    &merge_optional_node_styles(default_hr_node_style(), node_override),
+                ),
+                Visibility::Visible,
+            ));
+            apply_common_bindings_to_entity(
+                entity,
+                show_expr.as_ref(),
+                None,
+                None,
+                None,
+                None,
+                ref_binding.as_ref(),
+                style_binding.as_ref(),
+                &[],
+                context,
+            );
+            insert_runtime_visuals(
+                entity,
+                &merged_visual_style(default_hr_visual_style(), visual_style),
+                state_visual_styles,
             );
             insert_class_bindings(entity, class, class_bindings);
         }
@@ -713,6 +875,9 @@ fn node_matches_condition(node: &DeclarativeUiNode, context: &DeclarativeUiBuild
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Image { conditional, .. }
+        | DeclarativeUiNode::Link { conditional, .. }
+        | DeclarativeUiNode::Hr { conditional, .. }
         | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
@@ -731,6 +896,9 @@ fn child_matches_conditional_chain(
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Image { conditional, .. }
+        | DeclarativeUiNode::Link { conditional, .. }
+        | DeclarativeUiNode::Hr { conditional, .. }
         | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
@@ -748,6 +916,9 @@ pub(crate) fn node_conditional(node: &DeclarativeUiNode) -> Option<&DeclarativeC
     match node {
         DeclarativeUiNode::Container { conditional, .. }
         | DeclarativeUiNode::Text { conditional, .. }
+        | DeclarativeUiNode::Image { conditional, .. }
+        | DeclarativeUiNode::Link { conditional, .. }
+        | DeclarativeUiNode::Hr { conditional, .. }
         | DeclarativeUiNode::Label { conditional, .. }
         | DeclarativeUiNode::Button { conditional, .. }
         | DeclarativeUiNode::Input { conditional, .. }
@@ -768,6 +939,244 @@ fn node_children(node: &DeclarativeUiNode) -> Option<&[DeclarativeUiNode]> {
         DeclarativeUiNode::Container { children, .. }
         | DeclarativeUiNode::Label { children, .. } => Some(children),
         _ => None,
+    }
+}
+
+fn default_container_node_style(tag: Option<DeclarativeContainerTag>) -> DeclarativeNodeStyle {
+    let mut style = DeclarativeNodeStyle::default();
+    match tag {
+        Some(DeclarativeContainerTag::Fieldset) => {
+            style.flex_direction = Some(DeclarativeFlexDirection::Column);
+            style.row_gap = Some(DeclarativeVal::Px(10.0));
+            style.padding = Some(uniform_rect(12.0));
+            style.border = Some(uniform_rect(1.0));
+            style.margin = Some(axis_rect(0.0, 10.0));
+        }
+        Some(DeclarativeContainerTag::Ul) | Some(DeclarativeContainerTag::Ol) => {
+            style.flex_direction = Some(DeclarativeFlexDirection::Column);
+            style.row_gap = Some(DeclarativeVal::Px(6.0));
+            style.margin = Some(axis_rect(0.0, 10.0));
+        }
+        Some(DeclarativeContainerTag::Li) => {
+            style.flex_direction = Some(DeclarativeFlexDirection::Row);
+            style.column_gap = Some(DeclarativeVal::Px(8.0));
+            style.align_items = Some(DeclarativeAlignItems::FlexStart);
+        }
+        Some(DeclarativeContainerTag::Form) => {
+            style.flex_direction = Some(DeclarativeFlexDirection::Column);
+            style.row_gap = Some(DeclarativeVal::Px(12.0));
+        }
+        _ => {}
+    }
+    style
+}
+
+fn default_image_node_style() -> DeclarativeNodeStyle {
+    DeclarativeNodeStyle {
+        display: Some(DeclarativeDisplay::Block),
+        ..Default::default()
+    }
+}
+
+fn default_hr_node_style() -> DeclarativeNodeStyle {
+    DeclarativeNodeStyle {
+        width: Some(DeclarativeVal::Percent(100.0)),
+        height: Some(DeclarativeVal::Px(1.0)),
+        margin: Some(axis_rect(0.0, 12.0)),
+        ..Default::default()
+    }
+}
+
+fn default_hr_visual_style() -> DeclarativeVisualStyle {
+    DeclarativeVisualStyle {
+        background_color: Some("#d8dee9".to_string()),
+        ..Default::default()
+    }
+}
+
+fn merged_text_style(
+    tag: Option<DeclarativeTextTag>,
+    mut style: DeclarativeTextStyle,
+) -> DeclarativeTextStyle {
+    match tag {
+        Some(DeclarativeTextTag::P) => {}
+        Some(DeclarativeTextTag::Legend) => {
+            style.size = style.size.max(16.0);
+            if style.color.is_none() {
+                style.color = Some("#334155".to_string());
+            }
+        }
+        Some(DeclarativeTextTag::Small) => {
+            style.size = style.size.min(12.0);
+            if style.color.is_none() {
+                style.color = Some("#64748b".to_string());
+            }
+        }
+        Some(DeclarativeTextTag::Strong) => {
+            if style.color.is_none() {
+                style.color = Some("#0f172a".to_string());
+            }
+        }
+        Some(DeclarativeTextTag::Em) => {
+            if style.color.is_none() {
+                style.color = Some("#1d4ed8".to_string());
+            }
+        }
+        Some(DeclarativeTextTag::H1) => style.size = style.size.max(30.0),
+        Some(DeclarativeTextTag::H2) => style.size = style.size.max(26.0),
+        Some(DeclarativeTextTag::H3) => style.size = style.size.max(22.0),
+        Some(DeclarativeTextTag::H4) => style.size = style.size.max(19.0),
+        Some(DeclarativeTextTag::H5) => style.size = style.size.max(17.0),
+        Some(DeclarativeTextTag::H6) => style.size = style.size.max(15.0),
+        _ => {}
+    }
+    style
+}
+
+fn merge_node_styles(
+    mut base: DeclarativeNodeStyle,
+    override_style: &DeclarativeNodeStyle,
+) -> DeclarativeNodeStyle {
+    macro_rules! apply_field {
+        ($field:ident) => {
+            if override_style.$field.is_some() {
+                base.$field = override_style.$field.clone();
+            }
+        };
+    }
+
+    apply_field!(width);
+    apply_field!(height);
+    apply_field!(min_width);
+    apply_field!(min_height);
+    apply_field!(max_width);
+    apply_field!(max_height);
+    apply_field!(flex_direction);
+    apply_field!(justify_content);
+    apply_field!(align_items);
+    apply_field!(align_content);
+    apply_field!(align_self);
+    apply_field!(flex_wrap);
+    apply_field!(flex_grow);
+    apply_field!(flex_shrink);
+    apply_field!(flex_basis);
+    apply_field!(row_gap);
+    apply_field!(column_gap);
+    apply_field!(padding);
+    apply_field!(margin);
+    apply_field!(border);
+    apply_field!(border_radius);
+    apply_field!(overflow_x);
+    apply_field!(overflow_y);
+    apply_field!(display);
+    apply_field!(position_type);
+    apply_field!(left);
+    apply_field!(right);
+    apply_field!(top);
+    apply_field!(bottom);
+
+    base
+}
+
+fn merge_optional_node_styles(
+    base: DeclarativeNodeStyle,
+    override_style: &Option<DeclarativeNodeStyle>,
+) -> DeclarativeNodeStyle {
+    override_style
+        .as_ref()
+        .map(|style| merge_node_styles(base.clone(), style))
+        .unwrap_or(base)
+}
+
+fn merged_visual_style(
+    mut base: DeclarativeVisualStyle,
+    override_style: &DeclarativeVisualStyle,
+) -> DeclarativeVisualStyle {
+    if override_style.background_color.is_some() {
+        base.background_color = override_style.background_color.clone();
+    }
+    if override_style.text_color.is_some() {
+        base.text_color = override_style.text_color.clone();
+    }
+    if override_style.border_color.is_some() {
+        base.border_color = override_style.border_color.clone();
+    }
+    if override_style.outline_width.is_some() {
+        base.outline_width = override_style.outline_width;
+    }
+    if override_style.outline_color.is_some() {
+        base.outline_color = override_style.outline_color.clone();
+    }
+    if override_style.opacity.is_some() {
+        base.opacity = override_style.opacity;
+    }
+    if override_style.transition_property.is_some() {
+        base.transition_property = override_style.transition_property;
+    }
+    if override_style.transition_duration_ms.is_some() {
+        base.transition_duration_ms = override_style.transition_duration_ms;
+    }
+    if override_style.transition_timing.is_some() {
+        base.transition_timing = override_style.transition_timing;
+    }
+    base
+}
+
+fn uniform_rect(px: f32) -> DeclarativeUiRect {
+    DeclarativeUiRect {
+        left: Some(DeclarativeVal::Px(px)),
+        right: Some(DeclarativeVal::Px(px)),
+        top: Some(DeclarativeVal::Px(px)),
+        bottom: Some(DeclarativeVal::Px(px)),
+    }
+}
+
+fn axis_rect(horizontal: f32, vertical: f32) -> DeclarativeUiRect {
+    DeclarativeUiRect {
+        left: Some(DeclarativeVal::Px(horizontal)),
+        right: Some(DeclarativeVal::Px(horizontal)),
+        top: Some(DeclarativeVal::Px(vertical)),
+        bottom: Some(DeclarativeVal::Px(vertical)),
+    }
+}
+
+fn list_marker_text(node: &DeclarativeUiNode, context: &DeclarativeUiBuildContext) -> Option<String> {
+    let DeclarativeUiNode::Container {
+        semantic_tag: Some(DeclarativeContainerTag::Li),
+        ..
+    } = node
+    else {
+        return None;
+    };
+    let index = context
+        .local_state()
+        .get("index")
+        .and_then(|value| value.number())
+        .map(|value| value as usize + 1);
+    Some(match index {
+        Some(index) => format!("{index}."),
+        None => "\u{2022}".to_string(),
+    })
+}
+
+fn list_marker_node_style() -> DeclarativeNodeStyle {
+    DeclarativeNodeStyle {
+        margin: Some(DeclarativeUiRect {
+            left: None,
+            right: Some(DeclarativeVal::Px(4.0)),
+            top: None,
+            bottom: None,
+        }),
+        ..Default::default()
+    }
+}
+
+fn build_list_marker_text(text: &str) -> beuvy_runtime::text::AddText {
+    beuvy_runtime::text::AddText {
+        text: text.to_string(),
+        size: 14.0,
+        color: text_primary_color(),
+        ..Default::default()
     }
 }
 

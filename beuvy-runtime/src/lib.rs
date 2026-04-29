@@ -25,10 +25,12 @@ pub mod button;
 pub mod focus;
 #[doc(hidden)]
 pub mod form_item;
+pub mod image;
 pub mod input;
 #[path = "state_style/mod.rs"]
 #[doc(hidden)]
 pub mod interaction_style;
+pub mod link;
 pub mod scroll;
 pub mod select;
 #[doc(hidden)]
@@ -39,8 +41,10 @@ mod theme_config;
 pub mod utility;
 
 pub use button::AddButton;
+pub use image::AddImage;
 pub use input::AddInput;
 pub use interaction_style as state_style;
+pub use link::{AddLink, LinkActivatedMessage};
 pub use scroll::{MouseWheelScroll, scroll_container_node};
 pub use select::{AddSelect, AddSelectOption};
 pub use select::{
@@ -68,12 +72,16 @@ impl Plugin for UiKitPlugin {
             .add_plugins(text::TextPlugin)
             .add_plugins(form_item::FormItem::default())
             .add_plugins(button::ButtonPlugin::default())
+            .add_plugins(image::ImagePlugin)
             .add_plugins(input::InputPlugin)
+            .add_plugins(link::LinkPlugin)
             .add_plugins(select::SelectPlugin)
             .add_plugins(interaction_style::UiStateStylePlugin)
             .register_required_components::<AddText, build_pending::UiBuildPending>()
             .register_required_components::<AddButton, build_pending::UiBuildPending>()
+            .register_required_components::<image::AddImage, build_pending::UiBuildPending>()
             .register_required_components::<AddInput, build_pending::UiBuildPending>()
+            .register_required_components::<link::AddLink, build_pending::UiBuildPending>()
             .register_required_components::<select::AddSelect, build_pending::UiBuildPending>()
             .register_required_components::<form_item::AddFormItem, build_pending::UiBuildPending>(
             );

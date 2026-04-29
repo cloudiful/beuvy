@@ -5,7 +5,7 @@
 It provides:
 
 - A core plugin for low-level UI controls
-- Reusable text, button, input, and form-item builders
+- Reusable text, button, input, image, link, and form-item builders
 - Tailwind-like utility class parsing
 
 The crate is intended as a reusable Bevy UI foundation. It does not include the
@@ -124,6 +124,33 @@ fn setup(mut commands: Commands) {
 
 Use `beuvy-runtime` directly when you do not want the declarative layer.
 
+## Current Runtime Surface
+
+The runtime is intentionally small. It aims to cover the "native HTML basics"
+that the declarative layer can build on top of.
+
+| Runtime type | Purpose |
+| --- | --- |
+| `AddText` | text nodes with plain or localized content |
+| `AddButton` | clickable button control |
+| `AddInput` | text-like and form-like input controls |
+| `AddSelect` | select trigger and options |
+| `AddImage` | image node from a Bevy asset path |
+| `AddLink` | focusable / activatable link-like text control |
+| `FormItem` | label + control layout helper |
+
+Supported `AddInput` types:
+
+| Type | Status |
+| --- | --- |
+| `text` | supported |
+| `password` | supported |
+| `number` | supported |
+| `range` | supported |
+| `checkbox` | supported |
+| `radio` | supported |
+| `textarea` | supported via multiline input mode |
+
 ## Utility Classes
 
 Use `parse_utility_classes` to convert a class string into a reusable style
@@ -169,7 +196,11 @@ fn setup_font(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 ## Examples
 
-- `cargo run -p beuvy-runtime --example basic_controls`
-- `cargo run -p beuvy-runtime --example button_states`
-- `cargo run -p beuvy-runtime --example control_events`
-- `cargo run -p beuvy-runtime --example utility_classes`
+| Command | Purpose |
+| --- | --- |
+| `cargo run -p beuvy-runtime --example basic_controls` | minimal runtime primitives |
+| `cargo run -p beuvy-runtime --example button_states` | button interaction visuals |
+| `cargo run -p beuvy-runtime --example control_events` | emitted control events |
+| `cargo run -p beuvy-runtime --example form_core` | checkbox, radio, password, labels |
+| `cargo run -p beuvy-runtime --example content_core` | image, link, separator, content blocks |
+| `cargo run -p beuvy-runtime --example utility_classes` | utility parser and style patch behavior |

@@ -20,6 +20,8 @@ mod scroll;
 mod style;
 #[path = "sync/text.rs"]
 mod text;
+#[path = "sync/media.rs"]
+mod media;
 #[path = "sync/value.rs"]
 mod value;
 #[path = "sync/visibility.rs"]
@@ -38,6 +40,7 @@ pub use resolve::resolve_runtime_path;
 pub(crate) use scroll::materialize_declarative_overflow_scroll;
 pub(crate) use style::sync_declarative_node_style_bindings;
 pub(crate) use text::sync_declarative_text_bindings;
+pub(crate) use media::{sync_declarative_image_bindings, sync_declarative_link_bindings};
 pub(crate) use value::{
     sync_declarative_field_values, write_input_values_to_runtime_store,
     write_select_values_to_runtime_store,

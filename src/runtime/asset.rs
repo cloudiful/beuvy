@@ -3,7 +3,8 @@ use super::sync::{
     apply_declarative_local_state_assignments, handle_declarative_label_click,
     infer_wrapped_label_targets, materialize_declarative_overflow_scroll,
     materialize_declarative_refs, sync_declarative_class_bindings, sync_declarative_disabled,
-    sync_declarative_field_values, sync_declarative_node_style_bindings,
+    sync_declarative_field_values, sync_declarative_image_bindings,
+    sync_declarative_link_bindings, sync_declarative_node_style_bindings,
     sync_declarative_ref_rects, sync_declarative_text_bindings, sync_declarative_visibility,
     write_input_values_to_runtime_store, write_select_values_to_runtime_store,
 };
@@ -76,6 +77,8 @@ impl Plugin for DeclarativeUiPlugin {
                     sync_declarative_text_bindings,
                     sync_declarative_disabled,
                     sync_declarative_field_values,
+                    sync_declarative_image_bindings,
+                    sync_declarative_link_bindings,
                 ),
             )
             .add_systems(Update, write_input_values_to_runtime_store)

@@ -6,6 +6,7 @@ use crate::runtime::state::{
 };
 use crate::{DeclarativeClassBinding, value::UiValue};
 use beuvy_runtime::button::ButtonLabel;
+use beuvy_runtime::link::LinkLabel;
 use beuvy_runtime::interaction_style::{
     pointer_cancel, pointer_drag_end, pointer_hover_out, pointer_hover_over, pointer_press,
     pointer_release,
@@ -44,6 +45,7 @@ pub(crate) fn sync_declarative_class_bindings(
         Option<&mut TextColor>,
         Option<&mut Outline>,
         Option<&ButtonLabel>,
+        Option<&LinkLabel>,
     )>,
 ) {
     for (
@@ -56,6 +58,7 @@ pub(crate) fn sync_declarative_class_bindings(
         mut text,
         mut outline,
         label,
+        link_label,
     ) in &mut query
     {
         if baseline.is_none()
@@ -65,6 +68,7 @@ pub(crate) fn sync_declarative_class_bindings(
             && text.is_none()
             && outline.is_none()
             && label.is_none()
+            && link_label.is_none()
         {
             continue;
         }
@@ -90,7 +94,13 @@ pub(crate) fn sync_declarative_class_bindings(
             entity, &binding, &parents, &states, &computed, &roots, &values, &ref_rects,
         );
         if binding.resolved_class == resolved {
-            apply_button_label_dynamic_class(label, entity, &mut commands, &resolved);
+            apply_label_dynamic_class(label.map(|v| v.entity), entity, &mut commands, &resolved);
+            apply_label_dynamic_class(
+                link_label.map(|v| v.entity),
+                entity,
+                &mut commands,
+                &resolved,
+            );
             continue;
         }
         binding.resolved_class = resolved.clone();
@@ -130,14 +140,18 @@ pub(crate) fn sync_declarative_class_bindings(
                 .observe(pointer_drag_end);
         });
 
-        if let Some(label) = label {
-            apply_button_label_dynamic_class(Some(label), entity, &mut commands, &resolved);
-        }
+        apply_label_dynamic_class(label.map(|v| v.entity), entity, &mut commands, &resolved);
+        apply_label_dynamic_class(
+            link_label.map(|v| v.entity),
+            entity,
+            &mut commands,
+            &resolved,
+        );
     }
 }
 
-fn apply_button_label_dynamic_class(
-    label: Option<&ButtonLabel>,
+fn apply_label_dynamic_class(
+    label: Option<Entity>,
     source: Entity,
     commands: &mut Commands,
     resolved: &str,
@@ -147,7 +161,7 @@ fn apply_button_label_dynamic_class(
     };
     let patch = resolve_class_patch_or_empty(resolved, "declarative dynamic button label class");
     let label_styles = text_visual_styles_from_patch(&patch).unwrap_or_default();
-    queue_entity_silenced(commands, label.entity, move |entity| {
+    queue_entity_silenced(commands, label, move |entity| {
         entity.insert((
             label_styles,
             beuvy_runtime::interaction_style::UiStateStyleSource(source),

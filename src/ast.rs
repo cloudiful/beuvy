@@ -16,6 +16,7 @@ pub struct DeclarativeUiAsset {
 pub enum DeclarativeUiNode {
     Container {
         node_id: String,
+        semantic_tag: Option<DeclarativeContainerTag>,
         class: String,
         class_bindings: Vec<DeclarativeClassBinding>,
         node: DeclarativeNodeStyle,
@@ -31,6 +32,7 @@ pub enum DeclarativeUiNode {
     },
     Text {
         node_id: String,
+        semantic_tag: Option<DeclarativeTextTag>,
         class: String,
         class_bindings: Vec<DeclarativeClassBinding>,
         content: DeclarativeUiTextContent,
@@ -38,6 +40,50 @@ pub enum DeclarativeUiNode {
         show_expr: Option<DeclarativeConditionExpr>,
         ref_binding: Option<DeclarativeRefSource>,
         style: DeclarativeTextStyle,
+    },
+    Image {
+        node_id: String,
+        class: String,
+        class_bindings: Vec<DeclarativeClassBinding>,
+        conditional: DeclarativeConditional,
+        show_expr: Option<DeclarativeConditionExpr>,
+        ref_binding: Option<DeclarativeRefSource>,
+        style_binding: Option<DeclarativeNodeStyleBinding>,
+        src: String,
+        src_binding: Option<String>,
+        alt: String,
+        alt_binding: Option<String>,
+        node_override: Option<DeclarativeNodeStyle>,
+        visual_style: DeclarativeVisualStyle,
+        state_visual_styles: DeclarativeStateVisualStyles,
+    },
+    Link {
+        node_id: String,
+        class: String,
+        class_bindings: Vec<DeclarativeClassBinding>,
+        conditional: DeclarativeConditional,
+        show_expr: Option<DeclarativeConditionExpr>,
+        ref_binding: Option<DeclarativeRefSource>,
+        style_binding: Option<DeclarativeNodeStyleBinding>,
+        event_bindings: Vec<DeclarativeEventBinding>,
+        href: String,
+        href_binding: Option<String>,
+        content: DeclarativeUiTextContent,
+        text_style: DeclarativeTextStyle,
+        visual_style: DeclarativeVisualStyle,
+        state_visual_styles: DeclarativeStateVisualStyles,
+    },
+    Hr {
+        node_id: String,
+        class: String,
+        class_bindings: Vec<DeclarativeClassBinding>,
+        conditional: DeclarativeConditional,
+        show_expr: Option<DeclarativeConditionExpr>,
+        ref_binding: Option<DeclarativeRefSource>,
+        style_binding: Option<DeclarativeNodeStyleBinding>,
+        node_override: Option<DeclarativeNodeStyle>,
+        visual_style: DeclarativeVisualStyle,
+        state_visual_styles: DeclarativeStateVisualStyles,
     },
     Label {
         node_id: String,
@@ -124,6 +170,39 @@ pub enum DeclarativeUiNode {
         for_each: DeclarativeForEach,
         children: Vec<DeclarativeUiNode>,
     },
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub enum DeclarativeContainerTag {
+    Div,
+    Section,
+    Header,
+    Footer,
+    Main,
+    Nav,
+    Aside,
+    Article,
+    Form,
+    Fieldset,
+    Ul,
+    Ol,
+    Li,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub enum DeclarativeTextTag {
+    Span,
+    P,
+    Legend,
+    Small,
+    Strong,
+    Em,
+    H1,
+    H2,
+    H3,
+    H4,
+    H5,
+    H6,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -642,6 +721,9 @@ impl DeclarativeUiNode {
         match self {
             Self::Container { node_id, .. }
             | Self::Text { node_id, .. }
+            | Self::Image { node_id, .. }
+            | Self::Link { node_id, .. }
+            | Self::Hr { node_id, .. }
             | Self::Label { node_id, .. }
             | Self::Button { node_id, .. }
             | Self::Input { node_id, .. }
@@ -655,6 +737,9 @@ impl DeclarativeUiNode {
         match self {
             Self::Container { node_id, .. }
             | Self::Text { node_id, .. }
+            | Self::Image { node_id, .. }
+            | Self::Link { node_id, .. }
+            | Self::Hr { node_id, .. }
             | Self::Label { node_id, .. }
             | Self::Button { node_id, .. }
             | Self::Input { node_id, .. }

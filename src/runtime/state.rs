@@ -10,6 +10,15 @@ use std::collections::{BTreeMap, HashMap};
 #[derive(Component, Debug, Clone)]
 pub struct DeclarativeTextBinding(pub DeclarativeUiTextContent);
 
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeImageSrcBinding(pub String);
+
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeImageAltBinding(pub String);
+
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct DeclarativeLinkHrefBinding(pub String);
+
 #[derive(Component, Debug, Clone)]
 pub struct DeclarativeSelectTextBindings(pub Vec<DeclarativeSelectOption>);
 
