@@ -158,6 +158,52 @@ fn setup(mut commands: Commands) {
                         ..default()
                     });
                 });
+
+                spawn_panel(parent, "Form Toggles", |parent| {
+                    spawn_labeled_toggle_row(
+                        parent,
+                        "Checkbox input",
+                        AddInput {
+                            name: "enable_audio".to_string(),
+                            input_type: InputType::Checkbox,
+                            checked: true,
+                            ..default()
+                        },
+                    );
+                    spawn_labeled_toggle_row(
+                        parent,
+                        "Radio input (easy)",
+                        AddInput {
+                            name: "mode".to_string(),
+                            input_type: InputType::Radio,
+                            value: "easy".to_string(),
+                            input_value: Some("easy".to_string()),
+                            checked: true,
+                            ..default()
+                        },
+                    );
+                    spawn_labeled_toggle_row(
+                        parent,
+                        "Radio input (hard)",
+                        AddInput {
+                            name: "mode".to_string(),
+                            input_type: InputType::Radio,
+                            value: "hard".to_string(),
+                            input_value: Some("hard".to_string()),
+                            ..default()
+                        },
+                    );
+                    spawn_field(parent, "Password input", |parent| {
+                        parent.spawn(AddInput {
+                            name: "secret".to_string(),
+                            input_type: InputType::Password,
+                            value: "hunter2".to_string(),
+                            placeholder: "Password".to_string(),
+                            size_chars: Some(20),
+                            ..default()
+                        });
+                    });
+                });
             });
 
             spawn_column(parent, |parent| {
@@ -192,34 +238,53 @@ fn setup(mut commands: Commands) {
                 });
 
                 spawn_panel(parent, "Buttons", |parent| {
+                    spawn_field_label(parent, "Default");
                     spawn_row(parent, |parent| {
                         parent.spawn(AddButton {
-                            name: "primary".to_string(),
+                            name: "default_primary".to_string(),
                             text: "Primary Action".to_string(),
                             class: Some("button-root w-[180px]".to_string()),
                             ..default()
                         });
                         parent.spawn(AddButton {
-                            name: "secondary".to_string(),
-                            text: "Secondary".to_string(),
-                            class: Some("button-root min-h-[36px] w-[140px] px-[10px]".to_string()),
+                            name: "default_secondary".to_string(),
+                            text: "Secondary Action".to_string(),
+                            class: Some("button-root w-[180px]".to_string()),
                             ..default()
                         });
                     });
+
+                    spawn_field_label(parent, "Sizing");
                     spawn_row(parent, |parent| {
-                        parent.spawn(AddButton {
-                            name: "disabled".to_string(),
-                            text: "Disabled".to_string(),
-                            class: Some("button-root w-[180px]".to_string()),
-                            disabled: true,
-                            ..default()
-                        });
                         parent.spawn(AddButton {
                             name: "compact".to_string(),
                             text: "Compact".to_string(),
                             class: Some(
                                 "button-root min-h-[30px] w-[120px] px-[8px] py-[4px]".to_string(),
                             ),
+                            ..default()
+                        });
+                        parent.spawn(AddButton {
+                            name: "wide".to_string(),
+                            text: "Wide Button".to_string(),
+                            class: Some("button-root min-h-[48px] w-[220px]".to_string()),
+                            ..default()
+                        });
+                    });
+
+                    spawn_field_label(parent, "Disabled");
+                    spawn_row(parent, |parent| {
+                        parent.spawn(AddButton {
+                            name: "disabled_default".to_string(),
+                            text: "Disabled".to_string(),
+                            disabled: true,
+                            ..default()
+                        });
+                        parent.spawn(AddButton {
+                            name: "disabled_wide".to_string(),
+                            text: "Disabled Wide".to_string(),
+                            disabled: true,
+                            class: Some("button-root min-h-[48px] w-[220px]".to_string()),
                             ..default()
                         });
                     });
@@ -281,6 +346,37 @@ fn spawn_panel(
     });
 }
 
+fn spawn_field(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    children: impl FnOnce(&mut ChildSpawnerCommands),
+) {
+    parent
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            row_gap: Val::Px(10.0),
+            flex_direction: FlexDirection::Column,
+            ..default()
+        })
+        .with_children(|parent| {
+            spawn_field_label(parent, label);
+            children(parent);
+        });
+}
+
+fn spawn_labeled_toggle_row(parent: &mut ChildSpawnerCommands, label: &str, input: AddInput) {
+    parent
+        .spawn(Node {
+            column_gap: Val::Px(12.0),
+            align_items: AlignItems::Center,
+            ..default()
+        })
+        .with_children(|row| {
+            row.spawn(input);
+            spawn_inline_label(row, label);
+        });
+}
+
 fn spawn_row(parent: &mut ChildSpawnerCommands, children: impl FnOnce(&mut ChildSpawnerCommands)) {
     parent
         .spawn(Node {
@@ -291,6 +387,32 @@ fn spawn_row(parent: &mut ChildSpawnerCommands, children: impl FnOnce(&mut Child
             ..default()
         })
         .with_children(children);
+}
+
+fn spawn_field_label(parent: &mut ChildSpawnerCommands, text: &str) {
+    parent.spawn((
+        Node::default(),
+        TextLayout::default(),
+        AddText {
+            text: text.to_string(),
+            size: 13.0,
+            color: Color::srgb_u8(75, 85, 99),
+            ..default()
+        },
+    ));
+}
+
+fn spawn_inline_label(parent: &mut ChildSpawnerCommands, text: &str) {
+    parent.spawn((
+        Node::default(),
+        TextLayout::default(),
+        AddText {
+            text: text.to_string(),
+            size: 15.0,
+            color: Color::srgb_u8(31, 41, 55),
+            ..default()
+        },
+    ));
 }
 
 fn spawn_text(parent: &mut ChildSpawnerCommands, text: &str, size: f32, color: Color) {

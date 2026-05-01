@@ -198,9 +198,7 @@ fn setup_font(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 | Command | Purpose |
 | --- | --- |
-| `cargo run -p beuvy-runtime --example basic_controls` | minimal runtime primitives |
-| `cargo run -p beuvy-runtime --example button_states` | button interaction visuals |
+| `cargo run -p beuvy-runtime --example basic_controls` | consolidated controls showcase: text, form inputs, toggles, selects, button states |
 | `cargo run -p beuvy-runtime --example control_events` | emitted control events |
-| `cargo run -p beuvy-runtime --example form_core` | checkbox, radio, password, labels |
 | `cargo run -p beuvy-runtime --example content_core` | image, link, separator, content blocks |
 | `cargo run -p beuvy-runtime --example utility_classes` | utility parser and style patch behavior |
